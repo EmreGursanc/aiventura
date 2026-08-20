@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEX-Core: Bölüm 8 — Büyük Final</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:'Outfit',monospace;color:white;position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:1}
+
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;height:56px;background:rgba(3,7,18,.97);border-bottom:1px solid rgba(239,68,68,.4);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:50}
+.hud-badge{font-size:12px;font-weight:900;color:#ef4444;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);padding:4px 12px;border-radius:20px;text-transform:uppercase;animation:pulseAlarm 2s infinite}
+@keyframes pulseAlarm{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+
+/* HEALTH BARS */
+.hp-container{display:flex;align-items:center;gap:10px}
+.hp-label{font-size:12px;font-weight:900;color:#f87171}
+.hp-bar-bg{width:200px;height:14px;background:#1e293b;border-radius:8px;overflow:hidden;border:1px solid #334155}
+.hp-bar-fill{height:100%;width:100%;transition:width 0.3s ease-out}
+#boss-hp-fill{background:linear-gradient(90deg,#991b1b,#ef4444)}
+#player-hp-fill{background:linear-gradient(90deg,#047857,#10b981)}
+#player-hp-label{color:#34d399}
+
+/* NEX BARK */
+#nex-bark{position:absolute;bottom:24px;left:24px;z-index:100;display:none;align-items:flex-end;gap:12px}
+#nex-avatar{width:56px;height:56px;border-radius:50%;background:rgba(239,68,68,.2);border:2px solid rgba(239,68,68,.5);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;box-shadow:0 0 20px rgba(239,68,68,.3)}
+#bark-bubble{background:rgba(15,23,42,.97);border:1px solid rgba(239,68,68,.5);border-radius:12px 12px 12px 2px;padding:12px 16px;max-width:300px;font-size:14px;font-weight:800;color:#fca5a5;line-height:1.5;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#bark-bubble.show{display:block}
+
+/* TUTORIAL OVERLAY */
+#tutorial-overlay{position:absolute;inset:0;z-index:400;background:rgba(3,7,18,.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
+.tut-box{background:#0f172a;border:2px solid #ef4444;border-radius:16px;width:90%;max-width:640px;padding:32px;display:flex;flex-direction:column;gap:20px;box-shadow:0 0 50px rgba(239,68,68,.3)}
+.tut-body{display:flex;gap:24px;align-items:flex-start}
+.tut-avatar{font-size:80px;animation:nexFloat 3s ease-in-out infinite;background:rgba(239,68,68,.1);padding:20px;border-radius:20px;border:2px solid rgba(239,68,68,.4);flex-shrink:0}
+@keyframes nexFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.tut-texts{flex:1;display:flex;flex-direction:column;gap:12px}
+.tut-title{font-size:22px;font-weight:900;color:#ef4444;letter-spacing:1px;text-transform:uppercase}
+.tut-text{font-size:16px;font-weight:700;color:#e2e8f0;line-height:1.6}
+.tut-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.btn-tut{padding:14px 40px;font-family:'Outfit',sans-serif;font-size:16px;font-weight:900;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,#b91c1c,#ef4444);color:#fff;box-shadow:0 0 24px rgba(239,68,68,.4);transition:transform .15s}
+.btn-tut:hover{transform:scale(1.06)}
+
+/* PHASE 1 UI: TOGGLE */
+#phase1-ui{position:absolute;bottom:40px;right:40px;z-index:200;display:none;flex-direction:column;align-items:center;gap:12px;background:rgba(15,23,42,.9);padding:20px;border-radius:16px;border:2px solid #334155}
+.p1-title{font-size:14px;font-weight:900;color:#94a3b8;text-transform:uppercase}
+.toggle-btn{width:200px;height:60px;border-radius:30px;border:none;font-family:'Outfit',sans-serif;font-size:18px;font-weight:900;color:white;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:10px}
+.toggle-btn.red{background:#ef4444;box-shadow:0 0 20px rgba(239,68,68,.5)}
+.toggle-btn.blue{background:#3b82f6;box-shadow:0 0 20px rgba(59,130,246,.5)}
+
+/* PHASE 2 UI: BUTTONS */
+#phase2-ui{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:200;display:none;gap:24px;background:rgba(15,23,42,.9);padding:24px;border-radius:20px;border:2px solid #ef4444;box-shadow:0 0 40px rgba(239,68,68,.4)}
+.action-btn{width:140px;height:100px;border:none;border-radius:16px;font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;color:white;cursor:pointer;transition:transform 0.1s}
+.action-btn:active{transform:scale(0.9)}
+.btn-vur{background:linear-gradient(135deg,#b91c1c,#ef4444)}
+.btn-gecir{background:linear-gradient(135deg,#047857,#10b981)}
+#p2-timer-bar{position:absolute;top:0;left:0;height:6px;background:#ef4444;width:100%;border-radius:20px 20px 0 0;transition:width 0.1s linear}
+
+/* PHASE 3 UI: SLIDER */
+#phase3-ui{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:200;display:none;flex-direction:column;align-items:center;gap:16px;background:rgba(15,23,42,.9);padding:24px 40px;border-radius:20px;border:2px solid #eab308;box-shadow:0 0 40px rgba(234,179,8,.3)}
+.p3-title{font-size:16px;font-weight:900;color:#fef08a;text-transform:uppercase}
+input[type=range]{-webkit-appearance:none;width:300px;height:12px;background:#334155;border-radius:6px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:#eab308;cursor:pointer;border:3px solid #fff;box-shadow:0 0 12px #eab308}
+#lock-bar-container{width:300px;height:12px;background:#1e293b;border-radius:6px;border:1px solid #334155;overflow:hidden}
+#lock-bar-fill{width:0%;height:100%;background:#eab308;transition:width 0.1s linear}
+
+/* DAMAGE FLASH */
+#damage-flash{position:absolute;inset:0;background:rgba(239,68,68,0.4);z-index:900;pointer-events:none;opacity:0;transition:opacity 0.2s}
+#damage-flash.flash{opacity:1}
+
+/* RESULT OVERLAY */
+#result-overlay{position:absolute;inset:0;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;background:radial-gradient(ellipse,#0f172a,#030712)}
+.result-title{font-size:42px;font-weight:900}
+.result-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:20px 30px;font-size:15px;font-weight:700;color:#94a3b8;max-width:500px;line-height:1.7}
+.btn-result{padding:14px 32px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:900;border:none;border-radius:8px;cursor:pointer;margin-top:12px}
+
+/* FLOATING TEXTS */
+#float-layer{position:absolute;inset:0;pointer-events:none;z-index:300;overflow:hidden}
+.float-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.9);border:2px solid;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:900;white-space:nowrap;transition:opacity .3s;box-shadow:0 6px 16px rgba(0,0,0,.6)}
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+
+<div id="damage-flash"></div>
+
+<div id="hud">
+  <div class="hp-container">
+    <div class="hp-label" id="player-hp-label">SİSTEM KALKANI</div>
+    <div class="hp-bar-bg"><div class="hp-bar-fill" id="player-hp-fill"></div></div>
+  </div>
+  <div class="hud-badge">⚠️ ANA GEMİ UYARISI</div>
+  <div class="hp-container">
+    <div class="hp-bar-bg"><div class="hp-bar-fill" id="boss-hp-fill"></div></div>
+    <div class="hp-label">GLITCH CORE</div>
+  </div>
+</div>
+
+<!-- PHASE UIs -->
+<div id="phase1-ui">
+  <div class="p1-title">AKTİF FİLTRE</div>
+  <button id="p1-toggle" class="toggle-btn red" onclick="toggleFilter()">🔴 KIRMIZIYI VUR</button>
+</div>
+
+<div id="phase2-ui">
+  <div id="p2-timer-bar"></div>
+  <button class="action-btn btn-vur" onclick="handleP2Action('vur')">🔫 VUR</button>
+  <button class="action-btn btn-gecir" onclick="handleP2Action('gecir')">🛡️ GEÇİR</button>
+</div>
+
+<div id="phase3-ui">
+  <div class="p3-title">Tahmin Açısı (Lookahead)</div>
+  <input type="range" id="lookahead-slider" min="-12" max="12" step="0.5" value="0">
+  <div style="font-size:12px;font-weight:800;color:#94a3b8">HEDEF KİLİDİ</div>
+  <div id="lock-bar-container"><div id="lock-bar-fill"></div></div>
+</div>
+
+<div id="nex-bark">
+  <div id="nex-avatar">🤖</div>
+  <div id="bark-bubble"><span id="bark-text"></span></div>
+</div>
+
+<div id="tutorial-overlay">
+  <div class="tut-box">
+    <div class="tut-body">
+      <div class="tut-avatar" id="tut-avatar">🤖</div>
+      <div class="tut-texts">
+        <div class="tut-title" id="tut-title">...</div>
+        <div class="tut-text" id="tut-text">...</div>
+      </div>
+    </div>
+    <div class="tut-actions">
+      <button class="btn-tut" onclick="startPhase()">Savaşa Dön ➔</button>
+    </div>
+  </div>
+</div>
+
+<div id="result-overlay">
+  <div class="result-title" id="result-title"></div>
+  <div class="result-card" id="result-card"></div>
+  <button class="btn-result" style="background:#10b981;color:#fff" onclick="parent.location.href='/dersler'">🗺 HARİTAYA DÖN</button>
+  <button class="btn-result" id="btn-retry" style="background:#ef4444;color:#fff;display:none;margin-left:10px" onclick="location.reload()">↺ TEKRAR DENE</button>
+</div>
+
+<div id="float-layer"></div>
+<canvas id="c"></canvas>
+
+<script>
+'use strict';
+
+// ── TUTORIAL TEXTS ────────────────────────────────────────────────
+const PHASES = [
+  {
+    phase: 1,
+    title: 'FAZ 1: KARMAŞIK VERİ AKIŞI',
+    text: 'GLITCH çekirdeğine ulaştık! Ama kendini savunmak için üzerimize Kırmızı (Virüs) ve Mavi (Temiz) verileri karışık atıyor. \n\nEkranda beliren Filtre Şalteri ile yapay zekamızı manuel olarak kontrol et. Kırmızı gelirken VUR, mavi gelirken GEÇİR moduna geç!',
+    avatar: '🤖'
+  },
+  {
+    phase: 2,
+    title: 'FAZ 2: SİSTEM HACKLENDİ!',
+    text: 'DİKKAT! GLITCH yapay zekamızın karar mekanizmasını kilitledi! Üzerimize çok hızlı veriler yolluyor. \n\nSadece 2 saniyen var! Hedefin rengine göre (Kırmızıysa VUR, Maviyse GEÇİR) tuşlara manuel basarak kalkanımızı koru!',
+    avatar: '⚠️'
+  },
+  {
+    phase: 3,
+    title: 'FAZ 3: HEDEF KİLİDİ',
+    text: 'Boss ölümcül bir lazer hazırlıyor ve sürekli kavis çizerek kaçıyor! \n\nTahmin (Lookahead) kaydırma çubuğunu kullanarak yeşil kamerayı Boss\'un üzerinde tut! Hedefe 3 saniye kilitli kalırsan Ana Lazerimiz ateşlenecek!',
+    avatar: '🎯'
+  }
+];
+
+// ── THREE.JS SETUP ───────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const W = () => canvas.parentElement?.clientWidth || window.innerWidth;
+const H = () => canvas.parentElement?.clientHeight || window.innerHeight;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W(), H());
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050101);
+scene.fog = new THREE.FogExp2(0x050101, 0.02);
+
+const camera = new THREE.PerspectiveCamera(60, W()/H(), 0.1, 200);
+camera.position.set(0, 20, 25);
+camera.lookAt(0, 0, 0);
+
+window.addEventListener('resize', () => {
+  renderer.setSize(W(), H());
+  camera.aspect = W()/H();
+  camera.updateProjectionMatrix();
+});
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xef4444, 1.0);
+dirLight.position.set(10, 20, -10);
+scene.add(dirLight);
+
+// Environment
+const grid = new THREE.GridHelper(60, 60, 0xef4444, 0x330000);
+grid.position.y = -0.5;
+grid.material.opacity = 0.3;
+grid.material.transparent = true;
+scene.add(grid);
+
+// Player Core (Bottom)
+const playerGeo = new THREE.IcosahedronGeometry(2, 1);
+const playerMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x10b981, emissiveIntensity:0.3, wireframe:true });
+const playerMesh = new THREE.Mesh(playerGeo, playerMat);
+playerMesh.position.set(0, 2, 12);
+scene.add(playerMesh);
+
+// Boss Core (Top)
+const bossGeo = new THREE.IcosahedronGeometry(5, 2);
+const bossMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0xef4444, emissiveIntensity:0.6, wireframe:true });
+const bossMesh = new THREE.Mesh(bossGeo, bossMat);
+bossMesh.position.set(0, 5, -15);
+scene.add(bossMesh);
+
+// ── GAME STATE ───────────────────────────────────────────────────
+const G = {
+  phaseIndex: 0, // 0, 1, 2
+  state: 'tutorial', // tutorial | playing | win | fail
+  time: 0,
+  
+  bossHP: 100,
+  playerHP: 100,
+  
+  enemies: [],
+  lasers: [],
+  ghosts: [],
+  floatTexts: [],
+  blasts: [],
+  
+  // Phase 1
+  p1Filter: 'red',
+  p1SpawnTimer: 0,
+  p1Count: 0,
+  
+  // Phase 2
+  p2ActiveEnemy: null,
+  p2Timer: 0,
+  p2Count: 0,
+  
+  // Phase 3
+  p3LockTime: 0,
+  p3Ghost: null
+};
+
+// ── UI HELPERS ───────────────────────────────────────────────────
+function updateHP() {
+  document.getElementById('boss-hp-fill').style.width = Math.max(0, G.bossHP) + '%';
+  document.getElementById('player-hp-fill').style.width = Math.max(0, G.playerHP) + '%';
+  
+  if (G.playerHP <= 0 && G.state !== 'fail') {
+    if(window.playExplosionSound) window.playExplosionSound(); endGame(false);
+  }
+}
+
+function damagePlayer(amt, reason) {
+  G.playerHP -= amt;
+  const f = document.getElementById('damage-flash');
+  f.className = 'flash';
+  setTimeout(() => f.className = '', 200);
+  updateHP();
+  bark(`HASAR ALINDI! ${reason}`, 'danger');
+}
+
+function bark(msg, type='normal', emoji='🤖') {
+  const b = document.getElementById('bark-bubble');
+  const t = document.getElementById('bark-text');
+  const a = document.getElementById('nex-avatar');
+  a.textContent = emoji;
+  t.textContent = msg;
+  b.className = 'show';
+  b.style.borderColor = type==='danger' ? '#ef4444' : type==='warn' ? '#eab308' : '#3b82f6';
+  if(window.barkTimeout) clearTimeout(window.barkTimeout);
+  window.barkTimeout = setTimeout(() => { b.className = ''; }, 3000);
+}
+
+function showThought(mesh, text, color) {
+  const div = document.createElement('div');
+  div.className = 'float-bubble';
+  div.style.borderColor = color;
+  div.style.color = color;
+  div.textContent = text;
+  document.getElementById('float-layer').appendChild(div);
+  
+  G.floatTexts.push({ el: div, mesh: mesh, t: 1.5, offsetY: 2 });
+}
+
+function showTutorial() {
+  G.state = 'tutorial';
+  const data = PHASES[G.phaseIndex];
+  document.getElementById('tutorial-overlay').style.display = 'flex';
+  document.getElementById('tut-title').textContent = data.title;
+  document.getElementById('tut-text').textContent = data.text;
+  document.getElementById('tut-avatar').textContent = data.avatar;
+}
+
+window.startPhase = function() {
+  document.getElementById('tutorial-overlay').style.display = 'none';
+  document.getElementById('nex-bark').style.display = 'flex';
+  G.state = 'playing';
+  
+  if (G.phaseIndex === 0) {
+    document.getElementById('phase1-ui').style.display = 'flex';
+    bark('Faz 1 Başladı! Şalteri Gelen Veriye Göre Ayarla!', 'warn');
+  } else if (G.phaseIndex === 1) {
+    document.getElementById('phase2-ui').style.display = 'flex';
+    bark('Faz 2 Başladı! Hızlı Karar Ver!', 'danger', '⚠️');
+    spawnPhase2Enemy();
+  } else if (G.phaseIndex === 2) {
+    document.getElementById('phase3-ui').style.display = 'flex';
+    bark('Faz 3 Başladı! Lazeri manuel olarak kilitle!', 'warn', '🎯');
+    
+    // Ghost for Phase 3
+    const gg = new THREE.OctahedronGeometry(1.5, 0);
+    const gm = new THREE.MeshBasicMaterial({ color:0xeab308, wireframe:true });
+    const ghost = new THREE.Mesh(gg, gm);
+    scene.add(ghost);
+    G.p3Ghost = ghost;
+  }
+};
+
+// ── PHASE 1 LOGIC ────────────────────────────────────────────────
+window.toggleFilter = function() {
+  const btn = document.getElementById('p1-toggle');
+  if (G.p1Filter === 'red') {
+    G.p1Filter = 'blue';
+    btn.className = 'toggle-btn blue';
+    btn.innerHTML = '🔵 MAVİYİ VUR';
+  } else {
+    G.p1Filter = 'red';
+    btn.className = 'toggle-btn red';
+    btn.innerHTML = '🔴 KIRMIZIYI VUR';
+  }
+};
+
+function spawnPhase1Enemy() {
+  const isRed = Math.random() > 0.4;
+  const geo = isRed ? new THREE.BoxGeometry(1.5,1.5,1.5) : new THREE.OctahedronGeometry(1.2);
+  const color = isRed ? 0xef4444 : 0x3b82f6;
+  const mat = new THREE.MeshPhongMaterial({ color:color, emissive:color, emissiveIntensity:0.4 });
+  const mesh = new THREE.Mesh(geo, mat);
+  
+  const x = (Math.random() - 0.5) * 12;
+  mesh.position.set(x, 2, -10); // Spawns near boss
+  scene.add(mesh);
+  
+  G.enemies.push({ mesh, isRed, active:true, speed: 12.0 });
+  G.p1Count++;
+}
+
+// ── PHASE 2 LOGIC ────────────────────────────────────────────────
+function spawnPhase2Enemy() {
+  const isRed = Math.random() > 0.5;
+  const geo = isRed ? new THREE.BoxGeometry(3,3,3) : new THREE.OctahedronGeometry(2);
+  const color = isRed ? 0xef4444 : 0x3b82f6;
+  const mat = new THREE.MeshPhongMaterial({ color:color, emissive:color, emissiveIntensity:0.5 });
+  const mesh = new THREE.Mesh(geo, mat);
+  
+  mesh.position.set(0, 3, -2); // Spawns in center
+  scene.add(mesh);
+  
+  G.p2ActiveEnemy = { mesh, isRed };
+  G.p2Timer = 1.8; // 1.8 seconds to react
+  G.p2Count++;
+}
+
+window.handleP2Action = function(action) {
+  if (G.state !== 'playing' || G.phaseIndex !== 1 || !G.p2ActiveEnemy) return;
+  
+  const e = G.p2ActiveEnemy;
+  let correct = false;
+  if (e.isRed && action === 'vur') correct = true;
+  if (!e.isRed && action === 'gecir') correct = true;
+  
+  if (correct) {
+    showThought(e.mesh, '✅ DOĞRU KARAR', '#10b981');
+    if (action === 'vur') shootLaser(playerMesh.position, e.mesh.position, 0xef4444);
+  } else {
+    damagePlayer(20, 'Yanlış Komut!');
+    showThought(e.mesh, '❌ YANLIŞ KARAR', '#ef4444');
+  }
+  
+  scene.remove(e.mesh);
+  G.p2ActiveEnemy = null;
+  
+  if (G.p2Count >= 8) {
+    setTimeout(transitionPhase, 1000);
+  } else {
+    setTimeout(spawnPhase2Enemy, 800);
+  }
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function shootLaser(from, to, color) {
+  const pts = [from.clone(), to.clone()];
+  const lg = new THREE.BufferGeometry().setFromPoints(pts);
+  const lm = new THREE.LineBasicMaterial({ color: color, linewidth: 4 });
+  const beam = new THREE.Line(lg, lm);
+  scene.add(beam);
+  if(window.playLaserSound) window.playLaserSound();
+  G.lasers.push({ mesh:beam, t:0.3 });
+  
+  const bg = new THREE.SphereGeometry(2, 12, 12);
+  const bm = new THREE.MeshBasicMaterial({ color:color, wireframe:true });
+  const blast = new THREE.Mesh(bg, bm);
+  blast.position.copy(to);
+  scene.add(blast);
+  G.blasts.push({ mesh:blast, t:0.4 });
+}
+
+function transitionPhase() {
+  G.phaseIndex++;
+  if (G.phaseIndex === 1) {
+    G.bossHP = 66;
+    document.getElementById('phase1-ui').style.display = 'none';
+  } else if (G.phaseIndex === 2) {
+    G.bossHP = 33;
+    document.getElementById('phase2-ui').style.display = 'none';
+  }
+  updateHP();
+  
+  if (G.phaseIndex < 3) {
+    showTutorial();
+  }
+}
+
+// ── END GAME ─────────────────────────────────────────────────────
+function endGame(win) {
+  if (G.state === 'fail' || G.state === 'win') return;
+  G.state = win ? 'win' : 'fail';
+  
+  const o = document.getElementById('result-overlay');
+  o.style.display = 'flex';
+  
+  document.getElementById('phase1-ui').style.display = 'none';
+  document.getElementById('phase2-ui').style.display = 'none';
+  document.getElementById('phase3-ui').style.display = 'none';
+  
+  if (win) {
+    document.getElementById('result-title').textContent = '🏆 SİSTEM KURTARILDI!';
+    document.getElementById('result-title').style.color = '#10b981';
+    document.getElementById('result-card').innerHTML = `
+      GLITCH Ana Gemisi tamamen yok edildi! <br><br>
+      Öğrendiğin tüm Yapay Zeka konseptlerini (Veri Sınıflandırma, Karar Ağaçları, Pekiştirmeli Öğrenme ve Sinir Ağları) mükemmel bir şekilde kullanarak dijital dünyayı kurtardın.
+      <br><br><b>Sen gerçek bir AI Mühendisisin!</b>
+    `;
+    
+    let xpAward = 2000;
+    const urlParams = new URLSearchParams(window.location.search);
+    const m = urlParams.get('mission');
+    if (m === 'c-g8-1' || m === 'c-g8-2') xpAward = 1000;
+    
+    if (window.parent) window.parent.postMessage({ type:'UNDERTALE_SECTION_CLEARED', xp: xpAward }, '*');
+  } else {
+    document.getElementById('result-title').textContent = '💥 SİSTEM ÇÖKTÜ!';
+    document.getElementById('result-title').style.color = '#ef4444';
+    document.getElementById('result-card').textContent = 'GLITCH çekirdeğimizi ele geçirdi. Dünyanın kaderi karanlığa gömüldü... Lütfen tekrar dene!';
+    document.getElementById('btn-retry').style.display = 'inline-block';
+  }
+}
+
+// ── ANIMATE LOOP ─────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  G.time += dt;
+
+  // Idle animations
+  playerMesh.rotation.y += dt;
+  bossMesh.rotation.y -= dt * 0.5;
+  bossMesh.rotation.x += dt * 0.3;
+
+  if (G.state !== 'playing') {
+    renderer.render(scene, camera);
+    return;
+  }
+
+  // --- PHASE 1 ---
+  if (G.phaseIndex === 0) {
+    G.p1SpawnTimer -= dt;
+    if (G.p1SpawnTimer <= 0 && G.p1Count < 10) {
+      spawnPhase1Enemy();
+      G.p1SpawnTimer = 1.4;
+    }
+    
+    G.enemies.forEach(e => {
+      if (!e.active) return;
+      e.mesh.position.z += e.speed * dt;
+      e.mesh.rotation.x += dt*2;
+      
+      // Auto-shoot line
+      if (e.mesh.position.z > 0 && e.mesh.position.z < 6) {
+        // AI makes a decision
+        const isTargeted = (G.p1Filter === 'red' && e.isRed) || (G.p1Filter === 'blue' && !e.isRed);
+        
+        if (isTargeted) {
+          shootLaser(playerMesh.position, e.mesh.position, e.isRed ? 0xef4444 : 0x3b82f6);
+          e.active = false;
+          scene.remove(e.mesh);
+          
+          if (!e.isRed) {
+            damagePlayer(15, 'Temiz veri yok edildi!');
+          } else {
+            showThought(playerMesh, '🎯 Virüs Yok Edildi', '#10b981');
+          }
+        }
+      }
+      
+      // Missed / Reached Core
+      if (e.mesh.position.z > 10 && e.active) {
+        e.active = false;
+        scene.remove(e.mesh);
+        if (e.isRed) {
+          damagePlayer(15, 'Virüs çekirdeğe sızdı!');
+        } else {
+          G.playerHP = Math.min(100, G.playerHP + 5);
+          updateHP();
+          showThought(playerMesh, '💾 Veri Kurtarıldı (+5 HP)', '#3b82f6');
+        }
+      }
+    });
+    
+    // Clean up
+    G.enemies = G.enemies.filter(e => e.active);
+    
+    if (G.p1Count >= 10 && G.enemies.length === 0) {
+      transitionPhase();
+    }
+  }
+  
+  // --- PHASE 2 ---
+  if (G.phaseIndex === 1) {
+    if (G.p2ActiveEnemy) {
+      G.p2Timer -= dt;
+      document.getElementById('p2-timer-bar').style.width = (G.p2Timer / 1.8 * 100) + '%';
+      
+      G.p2ActiveEnemy.mesh.scale.setScalar(1 + Math.sin(G.time * 20) * 0.1);
+      
+      if (G.p2Timer <= 0) {
+        damagePlayer(20, 'Süre Doldu!');
+        showThought(G.p2ActiveEnemy.mesh, '⏳ ZAMAN AŞIMI', '#ef4444');
+        scene.remove(G.p2ActiveEnemy.mesh);
+        G.p2ActiveEnemy = null;
+        
+        if (G.p2Count >= 8) setTimeout(transitionPhase, 1000);
+        else setTimeout(spawnPhase2Enemy, 800);
+      }
+    }
+  }
+  
+  // --- PHASE 3 ---
+  if (G.phaseIndex === 2) {
+    // Boss wobbles wildly
+    const wobbleX = Math.sin(G.time * 3.5) * 12;
+    bossMesh.position.x = wobbleX;
+    
+    // Ghost position based on slider
+    const lookVal = parseFloat(document.getElementById('lookahead-slider').value);
+    G.p3Ghost.position.set(lookVal, 5, -15);
+    
+    // Check overlap
+    const dist = Math.abs(bossMesh.position.x - G.p3Ghost.position.x);
+    if (dist < 3.5) { // generous hitbox
+      G.p3LockTime += dt;
+      G.p3Ghost.material.color.setHex(0x10b981); // Green when locked
+    } else {
+      G.p3LockTime = Math.max(0, G.p3LockTime - dt * 1.5);
+      G.p3Ghost.material.color.setHex(0xeab308); // Yellow otherwise
+    }
+    
+    document.getElementById('lock-bar-fill').style.width = Math.min(100, (G.p3LockTime / 3.0) * 100) + '%';
+    
+    if (G.p3LockTime >= 3.0) {
+      // SUPER LASER!
+      shootLaser(playerMesh.position, bossMesh.position, 0x10b981);
+      
+      // Giant blast
+      const bg = new THREE.SphereGeometry(6, 32, 32);
+      const bm = new THREE.MeshBasicMaterial({ color:0x10b981, wireframe:true });
+      const bigBlast = new THREE.Mesh(bg, bm);
+      bigBlast.position.copy(bossMesh.position);
+      scene.add(bigBlast);
+      G.blasts.push({ mesh:bigBlast, t:1.5 });
+      
+      G.bossHP = 0;
+      updateHP();
+      scene.remove(G.p3Ghost);
+      scene.remove(bossMesh);
+      G.phaseIndex = 99; // Stop logic
+      setTimeout(() => endGame(true), 2500);
+    }
+  }
+
+  // --- EFFECTS ---
+  G.lasers = G.lasers.filter(l => {
+    l.t -= dt;
+    if (l.t <= 0) { scene.remove(l.mesh); return false; }
+    return true;
+  });
+  G.blasts = G.blasts.filter(b => {
+    b.t -= dt;
+    b.mesh.scale.multiplyScalar(1.05);
+    if (b.mesh.material) b.mesh.material.opacity = b.t / (b.t > 0.4 ? 1.5 : 0.4);
+    if (b.t <= 0) { scene.remove(b.mesh); return false; }
+    return true;
+  });
+  G.floatTexts = G.floatTexts.filter(ft => {
+    ft.t -= dt;
+    ft.offsetY += dt * 2;
+    const pos = ft.mesh.position.clone();
+    pos.y += ft.offsetY;
+    pos.project(camera);
+    const x = (pos.x * .5 + .5) * W();
+    const y = (pos.y * -.5 + .5) * H();
+    ft.el.style.left = `${x}px`;
+    ft.el.style.top = `${y}px`;
+    ft.el.style.opacity = Math.max(0, ft.t / 1.5);
+    if (ft.t <= 0) { ft.el.remove(); return false; }
+    return true;
+  });
+
+  renderer.render(scene, camera);
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────
+updateHP();
+showTutorial();
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEX-Core: Bölüm 3 — Bilgisayarlı Görü</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:'Outfit',monospace;color:white;position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:1}
+
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;height:48px;background:rgba(3,7,18,.97);border-bottom:1px solid rgba(6,182,212,.3);display:none;align-items:center;justify-content:space-between;padding:0 16px;z-index:50}
+.hud-badge{font-size:10px;font-weight:900;color:#06B6D4;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);padding:4px 12px;border-radius:20px}
+#mission-label{font-size:13px;font-weight:800;color:#e2e8f0}
+
+/* PALETTE */
+#palette{position:absolute;left:0;top:48px;bottom:60px;width:160px;background:rgba(3,7,18,.97);border-right:1px solid rgba(6,182,212,.15);z-index:50;overflow-y:auto;padding:10px 8px;display:none;flex-direction:column;gap:8px}
+.pal-title{font-size:8px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:1px;padding:4px;text-align:center;border-bottom:1px solid #0f172a;margin-bottom:4px}
+.pal-block{padding:10px 8px;border-radius:10px;cursor:pointer;text-align:center;border:2px solid rgba(6,182,212,.4);background:rgba(6,182,212,.08);transition:all .2s;user-select:none}
+.pal-block:hover{transform:translateY(-2px);box-shadow:0 0 14px rgba(6,182,212,.4);background:rgba(6,182,212,.18)}
+.pal-block.placed{background:rgba(6,182,212,.35);border-color:#06B6D4;cursor:default;transform:none}
+.pal-block .pb-icon{font-size:28px;line-height:1;display:block;margin-bottom:4px}
+.pal-block .pb-name{font-size:10px;font-weight:900;color:#a5f3fc}
+.pal-badge{padding:8px;border-radius:8px;text-align:center;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.25);font-size:11px;font-weight:800;color:#06B6D4}
+.pal-block:not(.placed){animation:pulseBlock 2s ease-in-out infinite}
+@keyframes pulseBlock{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,.5)}50%{box-shadow:0 0 0 8px rgba(6,182,212,0)}}
+
+/* ENERGY BAR */
+#energy-wrap{position:absolute;top:50px;left:165px;right:10px;padding:6px 12px;background:rgba(3,7,18,.9);border-bottom:1px solid rgba(6,182,212,.15);display:none;align-items:center;gap:10px;z-index:50}
+#energy-label{font-size:11px;font-weight:900;color:#06B6D4;white-space:nowrap}
+#energy-track{flex:1;height:12px;background:#1e293b;border-radius:6px;overflow:hidden;border:1px solid rgba(6,182,212,.3)}
+#energy-fill{height:100%;background:linear-gradient(90deg,#06B6D4,#38bdf8);border-radius:6px;transition:width .3s}
+#energy-val{font-size:11px;font-weight:900;color:#e2e8f0;white-space:nowrap}
+
+/* STATUS */
+#status-bar{position:absolute;bottom:0;left:0;right:0;height:52px;background:rgba(3,7,18,.95);border-top:1px solid rgba(6,182,212,.2);display:none;align-items:center;justify-content:space-between;padding:0 16px 0 170px;z-index:50}
+#status-text{font-size:12px;font-weight:800;color:#94a3b8}
+
+/* NEX BARK */
+#nex-bark{position:absolute;bottom:60px;left:8px;z-index:100;display:none;align-items:flex-end;gap:8px}
+#nex-avatar{width:44px;height:44px;border-radius:50%;background:rgba(6,182,212,.2);border:2px solid rgba(6,182,212,.4);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+#bark-bubble{background:rgba(15,23,42,.97);border:1px solid rgba(6,182,212,.5);border-radius:12px 12px 12px 2px;padding:10px 14px;max-width:260px;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.5;display:none}
+#bark-bubble.show{display:block}
+
+/* PROGRESS DOTS */
+#prog-dots{display:flex;gap:6px;align-items:center}
+.pdot{width:10px;height:10px;border-radius:50%;background:#1e293b;border:2px solid #06B6D4}
+.pdot.active{background:#06B6D4;box-shadow:0 0 8px #06B6D4}
+
+/* TUTORIAL OVERLAY */
+#tutorial-overlay{position:absolute;inset:0;z-index:400;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
+.tut-box{background:#0f172a;border:2px solid #06B6D4;border-radius:16px;width:90%;max-width:640px;padding:28px;display:flex;flex-direction:column;gap:18px;box-shadow:0 0 40px rgba(6,182,212,.25);animation:tutIn .4s ease-out}
+@keyframes tutIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes nexFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.tut-body{display:flex;gap:20px;align-items:flex-start}
+.tut-avatar{font-size:72px;animation:nexFloat 3s ease-in-out infinite;background:rgba(6,182,212,.1);padding:16px;border-radius:16px;border:2px solid rgba(6,182,212,.3);flex-shrink:0}
+.tut-texts{flex:1;display:flex;flex-direction:column;gap:10px}
+.tut-title{font-size:17px;font-weight:900;color:#06B6D4;letter-spacing:1px;text-transform:uppercase}
+.tut-text{font-size:15px;font-weight:700;color:#e2e8f0;line-height:1.65}
+.tut-actions{display:flex;justify-content:flex-end}
+.btn-tut{padding:13px 34px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:900;border:none;border-radius:10px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn-tut.next{background:linear-gradient(135deg,#0891b2,#06B6D4);color:#000;box-shadow:0 0 24px rgba(6,182,212,.4)}
+.btn-tut.go{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 0 24px rgba(245,158,11,.4)}
+.btn-tut:hover{transform:scale(1.06)}
+
+/* WIN / FAIL OVERLAY */
+#result-overlay{position:absolute;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+#result-overlay.win{background:radial-gradient(ellipse,#052e16,#030712)}
+#result-overlay.fail{background:radial-gradient(ellipse,#2d0a0a,#030712)}
+.result-title{font-size:32px;font-weight:900}
+.result-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 20px;font-size:13px;font-weight:700;color:#94a3b8;max-width:420px;line-height:1.7}
+.btn-result{padding:12px 28px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:900;border:none;border-radius:8px;cursor:pointer;margin:4px}
+.btn-next{background:linear-gradient(135deg,#0891b2,#06B6D4);color:#000}
+.btn-map{background:#1e3a5f;color:#06B6D4;border:1px solid #06B6D4}
+.btn-retry{background:#7f1d1d;color:#fca5a5}
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="hud-badge">BÖLÜM 3</div>
+    <div id="mission-label">Bilgisayarlı Görü</div>
+  </div>
+  <div id="prog-dots">
+    <div class="pdot" id="pd1"></div>
+    <div class="pdot" id="pd2"></div>
+    <div class="pdot" id="pd3"></div>
+  </div>
+</div>
+
+<!-- PALETTE -->
+<div id="palette">
+  <div class="pal-title">🛠 Sensörler</div>
+  <div id="pal-items"></div>
+</div>
+
+<!-- ENERGY BAR (3.2 only) -->
+<div id="energy-wrap">
+  <span id="energy-label">⚡ ENERJİ</span>
+  <div id="energy-track"><div id="energy-fill" style="width:100%"></div></div>
+  <span id="energy-val">100 / 100</span>
+</div>
+
+<!-- NEX BARK -->
+<div id="nex-bark">
+  <div id="nex-avatar">🤖</div>
+  <div id="bark-bubble"><span id="bark-text"></span></div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+  <span id="status-text">⏳ Sensörleri yerleştir, sonra savaş başlasın!</span>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-overlay">
+  <div class="tut-box">
+    <div class="tut-body">
+      <div class="tut-avatar">🤖</div>
+      <div class="tut-texts">
+        <div class="tut-title" id="tut-title">YÜKLENİYOR</div>
+        <div class="tut-text" id="tut-text">...</div>
+      </div>
+    </div>
+    <div class="tut-actions">
+      <button class="btn-tut next" id="tut-btn" onclick="nextTutStep()">Devam Et ➔</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT OVERLAY -->
+<div id="result-overlay">
+  <div class="result-title" id="result-title"></div>
+  <div class="result-card" id="result-card"></div>
+  <div>
+    <button class="btn-result btn-next" id="btn-next" style="display:none" onclick="goNext()">SONRAKI GÖREVE GEÇ ➔</button>
+    <button class="btn-result btn-map" id="btn-map" style="display:none" onclick="goMap()">🗺 HARİTAYA DÖN</button>
+    <button class="btn-result btn-retry" id="btn-retry" style="display:none" onclick="location.reload()">↺ TEKRAR DENE</button>
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+'use strict';
+
+const MISSION = new URLSearchParams(window.location.search).get('mission') || 'c-g3-1';
+
+// ── TUTORIAL DATA ────────────────────────────────────────────────
+const TUT = {
+  'c-g3-1': [
+    { title: 'DİJİTAL SİS SALDIRISI!', text: 'GLITCH her tarafı sis bulutu ile kapladı. Yapay Zeka gözleri kör olmuş durumda — hiçbir şey göremiyorum!' },
+    { title: 'KAMERA SENSÖRÜ NEDİR?', text: 'Bilgisayarlar da insanlar gibi görmek için kameraya ihtiyaç duyar. Kamera Sensörü çevreyi piksel piksel tarar, bana görüntü verir.' },
+    { title: 'GÖREV', text: '👁️ Kamera Sensörü bloğuna tıkla ve yerleştir. Sis dağılacak, virüsler görünecek ve sistemimiz savunmaya geçecek!' }
+  ],
+  'c-g3-2': [
+    { title: 'HOLOGRAM TUZAĞI!', text: 'GLITCH sahte hologram virüsler gönderiyor! Bunlara ateş etmek enerji harcar. Ben hologramı gerçekten ayırt edemiyorum.' },
+    { title: 'LiDAR SENSÖRÜ', text: 'Lidar lazer ışınıyla nesnelerin derinliğini ölçer. Hologram düz (2B) olduğu için Lidar onu anında yakalar!' },
+    { title: '👆 NASIL KULLANILIR?', text: 'Sol paneldeki 📡 Lidar Sensörü kutusuna BİR KEZ tıkla! Tıkladığın an sensör devreye girer ve hologramları otomatik filtrelerim.' }
+  ],
+  'c-g3-3': [
+    { title: 'ZİFİRİ KARANLIK!', text: 'GLITCH tüm enerji hatlarını kesti! Ortam zifiri karanlık. Virüsler karanlıkta yaklaşıyor ama onları göremiyorum.' },
+    { title: 'ÇOKLU LiDAR AĞI', text: 'Tek sensör yetmez — kapsama alanı çok dar. Ama birden fazla Lidar sensörü birbirini tamamlayarak geniş bir görüş ağı oluşturur!' },
+    { title: 'GÖREV', text: '3 adet 📡 Lidar sensörü yerleştir. Her biri etrafını aydınlatır, virüsler görünür hale gelir ve sistem ateş eder!' }
+  ]
+};
+
+// ── MISSION CONFIG ───────────────────────────────────────────────
+const CFG = {
+  'c-g3-1': {
+    label: 'Görev 3.1 — Kamera Sensörü',
+    dot: 1,
+    totalToKill: 5,
+    palette: [{ id:'cam', icon:'👁️', name:'Kamera Sensörü', max:1 }],
+    fog: 0.18,
+    hologram: false,
+    dark: false,
+    xp: 300,
+    wave: [2, 5, 8, 11, 14].map((t,i)=>({ time:t, id:i }))
+  },
+  'c-g3-2': {
+    label: 'Görev 3.2 — Lidar Sensörü',
+    dot: 2,
+    totalToKill: 8,     // 8 real + 7 holo
+    palette: [{ id:'lidar', icon:'📡', name:'Lidar Sensörü', max:1 }],
+    fog: 0.0,
+    hologram: true,
+    dark: false,
+    xp: 300,
+    wave: [
+      {time:2, holo:false},
+      {time:4, holo:true},
+      {time:6, holo:false},
+      {time:7, holo:true},
+      {time:9, holo:false},
+      {time:10, holo:true},
+      {time:12, holo:false},
+      {time:14, holo:true},
+      {time:15, holo:false},
+      {time:17, holo:true},
+      {time:19, holo:false},
+      {time:20, holo:true},
+      {time:22, holo:false},
+      {time:23, holo:true},
+      {time:25, holo:false}
+    ]
+  },
+  'c-g3-3': {
+    label: 'Görev 3.3 — Karanlık Ağ',
+    dot: 3,
+    totalToKill: 6,
+    palette: [
+      { id:'lidar1', icon:'📡', name:'Lidar #1', max:1 },
+      { id:'lidar2', icon:'📡', name:'Lidar #2', max:1 },
+      { id:'lidar3', icon:'📡', name:'Lidar #3', max:1 }
+    ],
+    fog: 0.0,
+    hologram: false,
+    dark: true,
+    xp: 400,
+    wave: [3,6,9,12,15,18].map((t,i)=>({time:t,id:i}))
+  }
+}[MISSION] || (() => { window.parent.location.href = '/ders/c-g3-1'; })();
+
+// ── THREE.JS SETUP ───────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const W = () => canvas.parentElement?.clientWidth || window.innerWidth;
+const H = () => canvas.parentElement?.clientHeight || window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W(), H());
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(CFG.dark ? 0x000000 : 0x030712);
+if (CFG.fog > 0) scene.fog = new THREE.FogExp2(0x030712, CFG.fog);
+
+const camera = new THREE.PerspectiveCamera(60, W()/H(), 0.1, 200);
+camera.position.set(0, 16, 22);
+camera.lookAt(0, 0, 0);
+
+window.addEventListener('resize', () => {
+  renderer.setSize(W(), H());
+  camera.aspect = W()/H();
+  camera.updateProjectionMatrix();
+});
+
+// Lighting
+const ambient = new THREE.AmbientLight(0xffffff, CFG.dark ? 0.0 : 0.5);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0x06B6D4, 0.8);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
+
+// AI Core
+const coreGeo = new THREE.IcosahedronGeometry(1.5, 0);
+const coreMat = new THREE.MeshPhongMaterial({ color:0x06B6D4, emissive:0x06B6D4, emissiveIntensity:0.4, wireframe:true });
+const core = new THREE.Mesh(coreGeo, coreMat);
+core.position.y = 2.2;
+scene.add(core);
+
+const coreLight = new THREE.PointLight(0x06B6D4, 3, 8);
+coreLight.position.set(0, 2.5, 0);
+scene.add(coreLight);
+
+const baseGeo = new THREE.CylinderGeometry(3, 3.5, 0.5, 16);
+const baseMat = new THREE.MeshPhongMaterial({ color:0x222222, emissive:0x06B6D4, emissiveIntensity:0.05 });
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.position.y = 0.25;
+scene.add(base);
+
+// Rings around core
+for (let i = 0; i < 3; i++) {
+  const rg = new THREE.TorusGeometry(2 + i*0.5, 0.04, 8, 48);
+  const rm = new THREE.MeshBasicMaterial({ color: 0x06B6D4, transparent: true, opacity: 0.3 - i*0.08 });
+  const r = new THREE.Mesh(rg, rm);
+  r.rotation.x = Math.PI/2 + i * 0.3;
+  r.position.y = 2.2;
+  scene.add(r);
+}
+
+// Grid
+const grid = new THREE.GridHelper(50, 50, 0x06B6D4, 0x0f172a);
+scene.add(grid);
+
+// ── GAME STATE ───────────────────────────────────────────────────
+const G = {
+  phase: 'waiting',    // waiting | playing | win | fail
+  time: 0,
+  enemies: [],
+  lasers: [],
+  blasts: [],
+  waveIdx: 0,
+  killed: 0,
+  energy: 100,
+  placed: [],         // sensor ids placed
+  lidarNodes: [],     // THREE.Vector3 positions for c-g3-3
+  winTriggered: false
+};
+
+// ── UI INIT ──────────────────────────────────────────────────────
+document.getElementById('mission-label').textContent = CFG.label;
+
+// Progress dots
+const dotMap = { 1:'pd1', 2:'pd2', 3:'pd3' };
+for (let i = 1; i <= CFG.dot; i++) {
+  document.getElementById(dotMap[i]).classList.add('active');
+}
+
+// Palette items
+const palItems = document.getElementById('pal-items');
+CFG.palette.forEach(p => {
+  const d = document.createElement('div');
+  d.className = 'pal-block';
+  d.id = 'pb-' + p.id;
+  d.innerHTML = `<span class="pb-icon">${p.icon}</span><span class="pb-name">${p.name}</span>`;
+  d.onclick = () => placeBlock(p.id, d);
+  palItems.appendChild(d);
+});
+
+// For c-g3-2, show camera-active badge
+if (MISSION === 'c-g3-2') {
+  const badge = document.createElement('div');
+  badge.className = 'pal-badge';
+  badge.innerHTML = '👁️ Kamera <strong style="color:#06B6D4">✔ Aktif</strong>';
+  palItems.insertBefore(badge, palItems.firstChild);
+}
+
+// ── NEX BARK ─────────────────────────────────────────────────────
+let barkTimer = null;
+function bark(txt, mood='normal') {
+  const el = document.getElementById('bark-bubble');
+  document.getElementById('bark-text').textContent = txt;
+  el.style.borderColor = mood==='danger'?'#ef4444':mood==='warn'?'#f59e0b':'#06B6D4';
+  el.classList.add('show');
+  clearTimeout(barkTimer);
+  barkTimer = setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+// ── TUTORIAL ─────────────────────────────────────────────────────
+let tutStep = 0;
+const tutSteps = TUT[MISSION] || TUT['c-g3-1'];
+
+function showTutStep() {
+  const s = tutSteps[tutStep];
+  document.getElementById('tut-title').textContent = s.title;
+  document.getElementById('tut-text').textContent = s.text;
+  const btn = document.getElementById('tut-btn');
+  if (tutStep === tutSteps.length - 1) {
+    btn.textContent = '⚡ GÖREVE BAŞLA!';
+    btn.className = 'btn-tut go';
+  } else {
+    btn.textContent = 'Devam Et ➔';
+    btn.className = 'btn-tut next';
+  }
+}
+
+function nextTutStep() {
+  tutStep++;
+  if (tutStep >= tutSteps.length) {
+    startGame();
+  } else {
+    showTutStep();
+  }
+}
+
+function startGame() {
+  document.getElementById('tutorial-overlay').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('palette').style.display = 'flex';
+  document.getElementById('nex-bark').style.display = 'flex';
+  document.getElementById('status-bar').style.display = 'flex';
+  document.getElementById('status-text').textContent = '⏳ Sensörü yerleştir!';
+  if (MISSION === 'c-g3-2') {
+    document.getElementById('energy-wrap').style.display = 'flex';
+  }
+  G.phase = 'playing';
+
+  // Mission-specific bark on start
+  if (MISSION === 'c-g3-1') bark('Sis var! 👁️ Kamera Sensörü yerleştir ki görebileyim!', 'danger');
+  else if (MISSION === 'c-g3-2') bark('Hologram tuzağı! Enerjin bitmeden 📡 Lidar\'ı yerleştir!', 'warn');
+  else if (MISSION === 'c-g3-3') bark('Zifiri karanlık! 3 adet 📡 Lidar ile görüş ağını kur!', 'danger');
+}
+
+// ── PLACE BLOCK ─────────────────────────────────────────────────
+function placeBlock(id, el) {
+  if (el.classList.contains('placed')) return;
+  el.classList.add('placed');
+  G.placed.push(id);
+
+  if (MISSION === 'c-g3-1') {
+    bark('👁️ Kamera Sensörü aktif! Sis dağılıyor...', 'normal');
+    document.getElementById('status-text').textContent = '👁️ Kamera Aktif — Virüsler hedefleniyor';
+    
+    // Camera placement expanding blast to clear fog visually
+    const blastGeo = new THREE.RingGeometry(0.1, 1, 64);
+    const blastMat = new THREE.MeshBasicMaterial({ color:0x10b981, transparent:true, opacity:0.6, side:THREE.DoubleSide });
+    const blast = new THREE.Mesh(blastGeo, blastMat);
+    blast.rotation.x = -Math.PI/2;
+    blast.position.y = 0.5;
+    scene.add(blast);
+    let s = 1;
+    const expandBlast = () => {
+      s += 0.5;
+      blast.scale.setScalar(s);
+      blastMat.opacity -= 0.01;
+      if(blastMat.opacity > 0) requestAnimationFrame(expandBlast);
+      else scene.remove(blast);
+    };
+    expandBlast();
+  } else if (MISSION === 'c-g3-2') {
+    bark('📡 Lidar devrede! Hologramları görmezden geliyorum, sadece gerçek virüslere ateş ediyorum!', 'normal');
+    document.getElementById('status-text').textContent = '📡 Lidar AKTİF — Hologramlar filtre edildi ✔';
+    // 1. Sweeping Radar Beam
+    const sweepGeo = new THREE.CircleGeometry(16, 32, 0, Math.PI / 3);
+    const sweepMat = new THREE.MeshBasicMaterial({ color:0x06B6D4, transparent:true, opacity:0.25, side:THREE.DoubleSide });
+    const sweep = new THREE.Mesh(sweepGeo, sweepMat);
+    sweep.rotation.x = -Math.PI/2;
+    sweep.position.y = 0.2;
+    scene.add(sweep);
+
+    // 2. Expanding Scanner Pulses
+    const rings = [];
+    for(let i=0; i<3; i++) {
+        const rGeo = new THREE.RingGeometry(0.1, 0.4, 32);
+        const rMat = new THREE.MeshBasicMaterial({ color:0x06B6D4, transparent:true, opacity:0 });
+        const ring = new THREE.Mesh(rGeo, rMat);
+        ring.rotation.x = -Math.PI/2;
+        ring.position.y = 0.25;
+        scene.add(ring);
+        rings.push({ mesh: ring, age: i * -0.6 });
+    }
+
+    // 3. Central Lidar Pillar
+    const lidarPillar = new THREE.PointLight(0x06B6D4, 3, 25);
+    lidarPillar.position.set(0, 3, 0);
+    scene.add(lidarPillar);
+
+    let lastT = Date.now();
+    const animScan = () => {
+      if (G.phase !== 'playing') return;
+      const now = Date.now();
+      const dt = (now - lastT) / 1000;
+      lastT = now;
+
+      // Rotate sweep
+      sweep.rotation.z -= dt * 2.5; // Radar spin
+
+      // Expand rings
+      rings.forEach(r => {
+          r.age += dt;
+          if (r.age > 0) {
+              const progress = r.age / 2.0; // 2 sec life
+              if (progress > 1) { r.age = 0; }
+              else {
+                  r.mesh.scale.setScalar(1 + progress * 40); // Expand to size 40
+                  r.mesh.material.opacity = (1 - progress) * 0.4;
+              }
+          }
+      });
+      requestAnimationFrame(animScan);
+    };
+    animScan();
+  } else if (MISSION === 'c-g3-3') {
+    const idx = G.placed.length - 1;
+    const angles = [0, Math.PI * 2/3, Math.PI * 4/3];
+    const d = 5;
+    const lx = Math.cos(angles[idx]) * d;
+    const lz = Math.sin(angles[idx]) * d;
+    G.lidarNodes.push(new THREE.Vector3(lx, 0, lz));
+
+    // Lidar light
+    const ll = new THREE.PointLight(0x06B6D4, 3, 10);
+    ll.position.set(lx, 1, lz);
+    scene.add(ll);
+
+    // 1. Sweeping Radar Beam (Local to this node)
+    const sweepGeo = new THREE.CircleGeometry(6, 32, 0, Math.PI / 3);
+    const sweepMat = new THREE.MeshBasicMaterial({ color:0x06B6D4, transparent:true, opacity:0.35, side:THREE.DoubleSide });
+    const sweep = new THREE.Mesh(sweepGeo, sweepMat);
+    sweep.rotation.x = -Math.PI/2;
+    sweep.position.set(lx, 0.2, lz);
+    scene.add(sweep);
+
+    // 2. Expanding Scanner Pulses
+    const rings = [];
+    for(let i=0; i<3; i++) {
+        const rGeo = new THREE.RingGeometry(0.1, 0.3, 32);
+        const rMat = new THREE.MeshBasicMaterial({ color:0x06B6D4, transparent:true, opacity:0 });
+        const ring = new THREE.Mesh(rGeo, rMat);
+        ring.rotation.x = -Math.PI/2;
+        ring.position.set(lx, 0.25, lz);
+        scene.add(ring);
+        rings.push({ mesh: ring, age: i * -0.6 });
+    }
+
+    let lastT = Date.now();
+    const animScan = () => {
+      if (G.phase !== 'playing') return;
+      const now = Date.now();
+      const dt = (now - lastT) / 1000;
+      lastT = now;
+
+      sweep.rotation.z -= dt * 2.5;
+
+      rings.forEach(r => {
+          r.age += dt;
+          if (r.age > 0) {
+              const progress = r.age / 1.5; // 1.5 sec life (smaller radius)
+              if (progress > 1) { r.age = 0; }
+              else {
+                  r.mesh.scale.setScalar(1 + progress * 15); // Expand to size 15
+                  r.mesh.material.opacity = (1 - progress) * 0.5;
+              }
+          }
+      });
+      requestAnimationFrame(animScan);
+    };
+    animScan();
+
+    bark(`📡 Lidar #${G.placed.length} devrede! Görüş alanı genişliyor.`, 'normal');
+    if (G.placed.length === 3) {
+      document.getElementById('status-text').textContent = '📡 Tam Lidar Ağı — Tüm virüsler tespit ediliyor';
+    }
+  }
+}
+
+// ── SPAWN ENEMY ─────────────────────────────────────────────────
+function spawnEnemy(isHolo) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 14;
+
+  let geo, mat;
+  if (isHolo) {
+    // Hologram: flat plane, wireframe, purple
+    geo = new THREE.PlaneGeometry(1.4, 1.4);
+    mat = new THREE.MeshBasicMaterial({ color:0xc084fc, wireframe:true, transparent:true, opacity:0.7, side:THREE.DoubleSide });
+  } else {
+    // Real virus: 3D box, red
+    geo = new THREE.BoxGeometry(1, 1, 1);
+    mat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0xef4444, emissiveIntensity:0.3 });
+  }
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(Math.cos(angle)*dist, 1.2, Math.sin(angle)*dist);
+
+  // In dark mode (c-g3-3), enemies start invisible
+  if (CFG.dark) {
+    mat.transparent = true;
+    mat.opacity = 0;
+  }
+
+  scene.add(mesh);
+  G.enemies.push({ mesh, isHolo, active:true, revealed:!CFG.dark });
+}
+
+// ── SHOOT ────────────────────────────────────────────────────────
+let lastShot = 0;
+function tryShoot(dt) {
+  if (G.time - lastShot < 0.8) return;
+
+  const hasLidar = G.placed.includes('lidar') || G.placed.some(id => id.startsWith('lidar'));
+
+  let target = null;
+  for (const e of G.enemies) {
+    if (!e.active) continue;
+    // With lidar: skip holograms entirely
+    if (e.isHolo && hasLidar) continue;
+    // In dark mode: skip invisible enemies
+    if (CFG.dark && !e.revealed) continue;
+
+    const d = e.mesh.position.length();
+    if (d < 12) {
+      target = e;
+      break;
+    }
+  }
+
+  if (!target) return;
+  lastShot = G.time;
+
+  // Laser beam
+  const pts = [core.position.clone(), target.mesh.position.clone()];
+  const lg = new THREE.BufferGeometry().setFromPoints(pts);
+  const lm = new THREE.LineBasicMaterial({ color: target.isHolo ? 0xf59e0b : 0x06B6D4 });
+  const beam = new THREE.Line(lg, lm);
+  scene.add(beam);
+  if(window.playLaserSound) window.playLaserSound();
+  G.lasers.push({ mesh:beam, t:0.25 });
+
+  if (target.isHolo) {
+    // Drain energy
+    G.energy = Math.max(0, G.energy - 20);
+    updateEnergy();
+    bark('⚡ Hologramı vurdum! Enerji boşa gitti...', 'warn');
+    if (G.energy <= 0) {
+      if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'Enerji bitti! Tüm enerjini hologramlar tüketti. Lidar sensörünü daha erken yerleştirmeliydin.');
+    }
+  } else {
+    // Destroy
+    scene.remove(target.mesh);
+    target.active = false;
+    G.killed++;
+
+    // Blast
+    const bg = new THREE.SphereGeometry(0.6, 8, 8);
+    const bm = new THREE.MeshBasicMaterial({ color:0xfbbf24, wireframe:true });
+    const blast = new THREE.Mesh(bg, bm);
+    blast.position.copy(target.mesh.position);
+    scene.add(blast);
+    G.blasts.push({ mesh:blast, t:0.4 });
+
+    document.getElementById('status-text').textContent = `✅ Yok Edilen: ${G.killed} / ${CFG.totalToKill}`;
+  }
+}
+
+function updateEnergy() {
+  const pct = G.energy;
+  document.getElementById('energy-fill').style.width = pct + '%';
+  document.getElementById('energy-fill').style.background = pct > 50 ? 'linear-gradient(90deg,#06B6D4,#38bdf8)' : pct > 25 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : 'linear-gradient(90deg,#ef4444,#f87171)';
+  document.getElementById('energy-val').textContent = Math.round(pct) + ' / 100';
+}
+
+// ── END GAME ─────────────────────────────────────────────────────
+function endGame(win, msg) {
+  if (G.phase === 'win' || G.phase === 'fail') return;
+  G.phase = win ? 'win' : 'fail';
+
+  const ov = document.getElementById('result-overlay');
+  ov.className = win ? 'win' : 'fail';
+  ov.style.display = 'flex';
+
+  if (win) {
+    document.getElementById('result-title').textContent = '🎉 BAŞARDIK!';
+    document.getElementById('result-title').style.color = '#06B6D4';
+    document.getElementById('result-card').textContent = `Yapay Zeka yeni bir algı becerisi öğrendi! ${CFG.xp} XP kazanıldı.`;
+    if (MISSION === 'c-g3-3') {
+      document.getElementById('btn-map').style.display = 'inline-block';
+    } else {
+      document.getElementById('btn-next').style.display = 'inline-block';
+    }
+    if (window.parent) window.parent.postMessage({ type:'UNDERTALE_SECTION_CLEARED', xp:CFG.xp }, '*');
+  } else {
+    document.getElementById('result-title').textContent = '💥 SİSTEM ÇÖKTÜ!';
+    document.getElementById('result-title').style.color = '#ef4444';
+    document.getElementById('result-card').textContent = msg;
+    document.getElementById('btn-retry').style.display = 'inline-block';
+  }
+}
+
+function goNext() {
+  if (MISSION === 'c-g3-1') window.parent.location.href = '/ders/c-g3-2';
+  else if (MISSION === 'c-g3-2') window.parent.location.href = '/ders/c-g3-3';
+}
+function goMap() {
+  if (window.parent) window.parent.location.href = '/dersler';
+}
+
+// ── ANIMATE LOOP ─────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  core.rotation.y += dt * 0.8;
+  core.position.y = 2.2 + Math.sin(Date.now() * 0.002) * 0.15;
+
+  if (G.phase !== 'playing') {
+    renderer.render(scene, camera);
+    return;
+  }
+
+  G.time += dt;
+
+  // c-g3-1: animate fog clearing when camera placed
+  if (MISSION === 'c-g3-1' && G.placed.includes('cam') && scene.fog && scene.fog.density > 0.015) {
+    scene.fog.density -= dt * 0.04;
+  }
+
+  // c-g3-3: reveal enemies near lidar nodes
+  if (CFG.dark) {
+    G.enemies.forEach(e => {
+      if (!e.active) return;
+      let visible = false;
+      for (const node of G.lidarNodes) {
+        if (e.mesh.position.distanceTo(node) < 6) { visible = true; break; }
+      }
+      e.revealed = visible;
+      if (e.mesh.material) {
+        e.mesh.material.transparent = true;
+        e.mesh.material.opacity = visible ? 1 : 0;
+      }
+    });
+  }
+
+  // Spawn wave
+  if (G.waveIdx < CFG.wave.length && G.time >= CFG.wave[G.waveIdx].time) {
+    const w = CFG.wave[G.waveIdx];
+    spawnEnemy(w.holo === true);
+    G.waveIdx++;
+  }
+
+  // c-g3-1 fail if no sensor and enemy reaches inner zone
+  if (MISSION === 'c-g3-1' && !G.placed.includes('cam')) {
+    const nearest = G.enemies.filter(e => e.active).map(e => e.mesh.position.length()).sort((a,b)=>a-b)[0];
+    if (nearest && nearest < 4) {
+      if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'Kamera sensörü olmadan virüsü göremez ve vuramam! Önce sensörü yerleştir.');
+      return;
+    }
+  }
+
+  // Move enemies
+  G.enemies.forEach(e => {
+    if (!e.active) return;
+    const dir = new THREE.Vector3().copy(e.mesh.position).negate().normalize();
+    const speed = e.isHolo ? 0.07 : 0.055;
+    e.mesh.position.addScaledVector(dir, speed);
+    if (!e.isHolo) {
+      e.mesh.rotation.x += dt * 1.5;
+      e.mesh.rotation.y += dt * 1.5;
+    }
+    const dist = e.mesh.position.length();
+    if (dist < 2.8 && !e.isHolo) {
+      if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'Virüs çekirdeğe ulaştı! Sistem çöktü.');
+    }
+    if (dist < 2.8 && e.isHolo) {
+      // holograms pass through — just deactivate
+      scene.remove(e.mesh);
+      e.active = false;
+    }
+  });
+
+  // Shoot
+  if (MISSION === 'c-g3-1' && !G.placed.includes('cam')) {
+    // can't shoot without camera
+  } else {
+    tryShoot(dt);
+  }
+
+  // Update lasers
+  G.lasers = G.lasers.filter(l => {
+    l.t -= dt;
+    if (l.t <= 0) { scene.remove(l.mesh); return false; }
+    return true;
+  });
+
+  // Update blasts
+  G.blasts = G.blasts.filter(b => {
+    b.t -= dt;
+    b.mesh.scale.multiplyScalar(1.06);
+    if (b.mesh.material) b.mesh.material.opacity = b.t / 0.4;
+    if (b.t <= 0) { scene.remove(b.mesh); return false; }
+    return true;
+  });
+
+  // Win check
+  if (!G.winTriggered && G.killed >= CFG.totalToKill && G.waveIdx >= CFG.wave.length) {
+    G.winTriggered = true;
+    setTimeout(() => endGame(true, ''), 800);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────
+showTutStep();
+animate();
+</script>
+</body>
+</html>

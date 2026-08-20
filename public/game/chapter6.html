@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEX-Core: Bölüm 6 — Pekiştirmeli Öğrenme</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:'Outfit',monospace;color:white;position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:1}
+
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;height:48px;background:rgba(3,7,18,.97);border-bottom:1px solid rgba(16,185,129,.3);display:none;align-items:center;justify-content:space-between;padding:0 16px;z-index:50}
+.hud-badge{font-size:10px;font-weight:900;color:#10b981;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:4px 12px;border-radius:20px}
+#mission-label{font-size:13px;font-weight:800;color:#e2e8f0}
+
+/* TRAINER PANEL */
+#trainer-panel{position:absolute;left:0;top:48px;bottom:60px;width:180px;background:rgba(3,7,18,.97);border-right:1px solid rgba(16,185,129,.15);z-index:50;overflow-y:auto;padding:10px 8px;display:none;flex-direction:column;gap:8px}
+.pal-title{font-size:8px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:1px;padding:4px;text-align:center;border-bottom:1px solid #0f172a;margin-bottom:4px}
+.train-btn{padding:14px 8px;border-radius:10px;cursor:pointer;text-align:center;border:2px solid rgba(16,185,129,.4);background:rgba(16,185,129,.08);transition:all .2s;user-select:none;font-family:'Outfit';color:#10b981;font-weight:900;font-size:13px;}
+.train-btn:hover{transform:translateY(-2px);box-shadow:0 0 14px rgba(16,185,129,.4);background:rgba(16,185,129,.18)}
+.train-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none;}
+#btn-punish{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08);color:#ef4444;}
+#btn-punish:hover{box-shadow:0 0 14px rgba(239,68,68,.4);background:rgba(239,68,68,.18)}
+
+/* STATUS */
+#status-bar{position:absolute;bottom:0;left:0;right:0;height:52px;background:rgba(3,7,18,.95);border-top:1px solid rgba(16,185,129,.2);display:none;align-items:center;justify-content:space-between;padding:0 16px 0 190px;z-index:50}
+#status-text{font-size:12px;font-weight:800;color:#94a3b8}
+
+/* NEX BARK */
+#nex-bark{position:absolute;bottom:60px;left:8px;z-index:100;display:none;align-items:flex-end;gap:8px}
+#nex-avatar{width:44px;height:44px;border-radius:50%;background:rgba(16,185,129,.2);border:2px solid rgba(16,185,129,.4);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+#bark-bubble{background:rgba(15,23,42,.97);border:1px solid rgba(16,185,129,.5);border-radius:12px 12px 12px 2px;padding:10px 14px;max-width:260px;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.5;display:none}
+#bark-bubble.show{display:block}
+
+/* PROGRESS DOTS */
+#prog-dots{display:flex;gap:6px;align-items:center}
+.pdot{width:10px;height:10px;border-radius:50%;background:#1e293b;border:2px solid #10b981}
+.pdot.active{background:#10b981;box-shadow:0 0 8px #10b981}
+
+/* LEARNING HUD */
+#learning-hud{font-size:12px;font-weight:900;color:#10b981;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:4px 12px;border-radius:20px;display:none;margin-right:12px}
+
+/* TUTORIAL OVERLAY */
+#tutorial-overlay{position:absolute;inset:0;z-index:400;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
+.tut-box{background:#0f172a;border:2px solid #10b981;border-radius:16px;width:90%;max-width:640px;padding:28px;display:flex;flex-direction:column;gap:18px;box-shadow:0 0 40px rgba(16,185,129,.25);animation:tutIn .4s ease-out}
+@keyframes tutIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes nexFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.tut-body{display:flex;gap:20px;align-items:flex-start}
+.tut-avatar{font-size:72px;animation:nexFloat 3s ease-in-out infinite;background:rgba(16,185,129,.1);padding:16px;border-radius:16px;border:2px solid rgba(16,185,129,.3);flex-shrink:0}
+.tut-texts{flex:1;display:flex;flex-direction:column;gap:10px}
+.tut-title{font-size:17px;font-weight:900;color:#10b981;letter-spacing:1px;text-transform:uppercase}
+.tut-text{font-size:15px;font-weight:700;color:#e2e8f0;line-height:1.65}
+.tut-actions{display:flex;justify-content:flex-end}
+.btn-tut{padding:13px 34px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:900;border:none;border-radius:10px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn-tut.next{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 0 24px rgba(16,185,129,.4)}
+.btn-tut.go{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 0 24px rgba(16,185,129,.4)}
+.btn-tut:hover{transform:scale(1.06)}
+
+/* WIN / FAIL OVERLAY */
+#result-overlay{position:absolute;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+#result-overlay.win{background:radial-gradient(ellipse,#064e3b,#030712)}
+#result-overlay.fail{background:radial-gradient(ellipse,#7f1d1d,#030712)}
+.result-title{font-size:32px;font-weight:900}
+.result-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 20px;font-size:13px;font-weight:700;color:#94a3b8;max-width:420px;line-height:1.7}
+.btn-result{padding:12px 28px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:900;border:none;border-radius:8px;cursor:pointer;margin:4px}
+.btn-retry{background:#b91c1c;color:#fecaca}
+
+/* AUTOPILOT ALERT */
+#autopilot-alert{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(16,185,129,.9);color:#fff;font-weight:900;font-size:24px;padding:20px 40px;border-radius:12px;box-shadow:0 0 40px rgba(16,185,129,.6);z-index:400;display:none;text-align:center;}
+
+/* FLOATING TEXTS */
+#float-layer{position:absolute;inset:0;pointer-events:none;z-index:200;overflow:hidden}
+.float-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.85);border:1px solid #334155;color:#e2e8f0;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;transition:opacity .3s;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.float-bubble.shoot{border-color:#ef4444;color:#fca5a5}
+.float-bubble.pass{border-color:#10b981;color:#6ee7b7}
+.float-bubble.lock{border-color:#fbbf24;color:#fcd34d}
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="hud-badge">BÖLÜM 6</div>
+    <div id="mission-label">Pekiştirmeli Öğrenme</div>
+  </div>
+  <div style="display:flex;align-items:center;">
+    <div id="learning-hud" style="display:block;">ÖĞRENME BARI: %<span id="learn-val">0</span></div>
+    <div id="prog-dots">
+      <div class="pdot" id="pd1"></div>
+      <div class="pdot" id="pd2"></div>
+      <div class="pdot" id="pd3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TRAINER PANEL -->
+<div id="trainer-panel">
+  <div class="pal-title">🧠 Antrenman</div>
+  <button id="btn-reward" class="train-btn" onclick="trainAction(true)" disabled>🔴 VUR (İmha Et)</button>
+  <button id="btn-punish" class="train-btn" onclick="trainAction(false)" disabled>🔵 GEÇİR (İzin Ver)</button>
+  <div id="timer-container"><div id="timer-bar"></div></div>
+</div>
+
+<!-- NEX BARK -->
+<div id="nex-bark">
+  <div id="nex-avatar">🤖</div>
+  <div id="bark-bubble"><span id="bark-text"></span></div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+  <span id="status-text">⏳ Hazırlanıyor...</span>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-overlay">
+  <div class="tut-box">
+    <div class="tut-body">
+      <div class="tut-avatar">🤖</div>
+      <div class="tut-texts">
+        <div class="tut-title" id="tut-title">YÜKLENİYOR</div>
+        <div class="tut-text" id="tut-text">...</div>
+      </div>
+    </div>
+    <div class="tut-actions">
+      <button class="btn-tut next" id="tut-btn" onclick="nextTutStep()">Devam Et ➔</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT OVERLAY -->
+<div id="result-overlay">
+  <div class="result-title" id="result-title"></div>
+  <div class="result-card" id="result-card"></div>
+  <div>
+    <button class="btn-result btn-next" id="btn-next" style="display:none; background:#059669; color:#fff;" onclick="goNext()">SONRAKİ GÖREVE GEÇ ➔</button>
+    <button class="btn-result btn-map" id="btn-map" style="display:none; background:#059669; color:#fff;" onclick="goMap()">🗺 HARİTAYA DÖN</button>
+    <button class="btn-result btn-retry" id="btn-retry" style="display:none" onclick="location.reload()">↺ TEKRAR DENE</button>
+  </div>
+</div>
+
+<!-- AUTOPILOT ALERT -->
+<div id="autopilot-alert">EĞİTİM TAMAMLANDI<br>OTOPİLOT AKTİF</div>
+
+<!-- FLOATING TEXTS LAYER -->
+<div id="float-layer"></div>
+
+<canvas id="c"></canvas>
+
+<script>
+'use strict';
+
+const MISSION = new URLSearchParams(window.location.search).get('mission') || 'c-g6-1';
+
+// ── TUTORIAL DATA ────────────────────────────────────────────────
+const TUT = {
+  'c-g6-1': [
+    { title: 'PEKİŞTİRMELİ ÖĞRENME', text: 'Yapay zeka henüz ne yapacağını bilmiyor! Onu eğitmek için senin komutlarına ihtiyacı var.' },
+    { title: 'ÖDÜL VE CEZA', text: 'Bir hedef yaklaştığında yapay zeka duraklayıp sana soracak. Kırmızı virüsleri vurması için ona "VUR" komutu vermelisin.' },
+    { title: 'GÖREV', text: 'Hedef kilitlendiğinde 🔴 VUR butonuna basarak yapay zekaya kırmızı virüsleri vurmayı öğret! Doğru komutlar ödül kazandırır (Öğrenme artar).' }
+  ],
+  'c-g6-2': [
+    { title: 'CEZA MEKANİZMASI', text: 'Şimdi mavi temiz veriler geliyor! Onları vurmak büyük bir hatadır.' },
+    { title: 'DOĞRU TEPKİ', text: 'Yapay zeka bir temiz veriye kilitlendiğinde ona "GEÇİR" demelisin. Böylece onu vurmaktan vazgeçip geçmesine izin verecek.' },
+    { title: 'GÖREV', text: 'Hedef kilitlendiğinde 🔵 GEÇİR butonuna basarak yapay zekaya temiz verilere dokunmamayı öğret! Yanlış komut verirsen ceza alır (Öğrenme düşer).' }
+  ],
+  'c-g6-3': [
+    { title: 'DENEME YANILMA', text: 'Sürünün içinde hem kırmızı virüsler hem de mavi temiz veriler var!' },
+    { title: 'GERÇEK TEST', text: 'Her hedef için doğru geri bildirimi ver. Kırmızıysa VUR, Maviyse GEÇİR. Hatalı yönlendirme yaparsan sistemin öğrenme barı düşer!' },
+    { title: 'OTOPİLOT', text: 'Öğrenme barı %100 olduğunda eğitim tamamlanacak ve yapay zeka otopilota geçip kendi başına savaşacak. Başarılar!' }
+  ]
+};
+
+// ── MISSION CONFIG ───────────────────────────────────────────────
+const CFG = {
+  'c-g6-1': {
+    label: 'Görev 6.1 — Ödül Mekanizması',
+    dot: 1,
+    xp: 600,
+    wave: [{time:2, type:'red'}, {time:5, type:'red'}, {time:8, type:'red'}, {time:11, type:'red'}, {time:14, type:'red'}]
+  },
+  'c-g6-2': {
+    label: 'Görev 6.2 — Ceza Mekanizması',
+    dot: 2,
+    xp: 600,
+    wave: [{time:2, type:'blue'}, {time:5, type:'blue'}, {time:8, type:'blue'}, {time:11, type:'blue'}, {time:14, type:'blue'}]
+  },
+  'c-g6-3': {
+    label: 'Görev 6.3 — Deneme Yanılma',
+    dot: 3,
+    xp: 700,
+    wave: [{time:2, type:'red'}, {time:4, type:'blue'}, {time:6, type:'red'}, {time:8, type:'red'}, {time:10, type:'blue'}, {time:12, type:'red'}, {time:14, type:'blue'}]
+  }
+}[MISSION] || (() => { window.parent.location.href = '/ders/c-g6-1'; })();
+
+// ── THREE.JS SETUP ───────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const W = () => canvas.parentElement?.clientWidth || window.innerWidth;
+const H = () => canvas.parentElement?.clientHeight || window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W(), H());
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030712);
+
+const camera = new THREE.PerspectiveCamera(60, W()/H(), 0.1, 200);
+camera.position.set(0, 16, 22);
+camera.lookAt(0, 0, 0);
+
+window.addEventListener('resize', () => {
+  renderer.setSize(W(), H());
+  camera.aspect = W()/H();
+  camera.updateProjectionMatrix();
+});
+
+// Lighting
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0x10b981, 0.8);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
+
+// AI Core
+const coreGeo = new THREE.IcosahedronGeometry(1.5, 0);
+const coreMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x10b981, emissiveIntensity:0.4, wireframe:true });
+const core = new THREE.Mesh(coreGeo, coreMat);
+core.position.y = 2.2;
+scene.add(core);
+
+const coreLight = new THREE.PointLight(0x10b981, 3, 8);
+coreLight.position.set(0, 2.5, 0);
+scene.add(coreLight);
+
+const baseGeo = new THREE.CylinderGeometry(3, 3.5, 0.5, 16);
+const baseMat = new THREE.MeshPhongMaterial({ color:0x222222, emissive:0x10b981, emissiveIntensity:0.05 });
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.position.y = 0.25;
+scene.add(base);
+
+// Rings around core
+for (let i = 0; i < 3; i++) {
+  const rg = new THREE.TorusGeometry(2 + i*0.5, 0.04, 8, 48);
+  const rm = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.3 - i*0.08 });
+  const r = new THREE.Mesh(rg, rm);
+  r.rotation.x = Math.PI/2 + i * 0.3;
+  r.position.y = 2.2;
+  scene.add(r);
+}
+
+// Grid
+const grid = new THREE.GridHelper(50, 50, 0x10b981, 0x0f172a);
+scene.add(grid);
+
+// ── GAME STATE ───────────────────────────────────────────────────
+const G = {
+  phase: 'waiting',    
+  time: 0,
+  enemies: [],
+  lasers: [],
+  blasts: [],
+  floatTexts: [],
+  waveIdx: 0,
+  learning: 0,
+  pausedTarget: null,
+  lockLaser: null,
+  lockTimer: 0,
+  autoPilot: false,
+  winTriggered: false
+};
+
+// ── UI INIT ──────────────────────────────────────────────────────
+document.getElementById('mission-label').textContent = CFG.label;
+
+// Progress dots
+const dotMap = { 1:'pd1', 2:'pd2', 3:'pd3' };
+for (let i = 1; i <= CFG.dot; i++) {
+  document.getElementById(dotMap[i]).classList.add('active');
+}
+
+// ── NEX BARK ─────────────────────────────────────────────────────
+let barkTimer = null;
+function bark(txt, mood='normal') {
+  const el = document.getElementById('bark-bubble');
+  document.getElementById('bark-text').textContent = txt;
+  el.style.borderColor = mood==='danger'?'#ef4444':mood==='warn'?'#fbbf24':'#10b981';
+  el.classList.add('show');
+  clearTimeout(barkTimer);
+  barkTimer = setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+// ── TUTORIAL ─────────────────────────────────────────────────────
+let tutStep = 0;
+const tutSteps = TUT[MISSION] || TUT['c-g6-1'];
+
+function showTutStep() {
+  const s = tutSteps[tutStep];
+  document.getElementById('tut-title').textContent = s.title;
+  document.getElementById('tut-text').textContent = s.text;
+  const btn = document.getElementById('tut-btn');
+  if (tutStep === tutSteps.length - 1) {
+    btn.textContent = '⚡ GÖREVE BAŞLA!';
+    btn.className = 'btn-tut go';
+  } else {
+    btn.textContent = 'Devam Et ➔';
+    btn.className = 'btn-tut next';
+  }
+}
+
+function nextTutStep() {
+  tutStep++;
+  if (tutStep >= tutSteps.length) {
+    startGame();
+  } else {
+    showTutStep();
+  }
+}
+
+function startGame() {
+  document.getElementById('tutorial-overlay').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('trainer-panel').style.display = 'flex';
+  document.getElementById('nex-bark').style.display = 'flex';
+  document.getElementById('status-bar').style.display = 'flex';
+  
+  document.getElementById('status-text').textContent = '⏳ Eğitim sürüyor... Gelecek hedefleri bekle.';
+  bark('Bir hedef kilitlendiğinde ona ne yapmamız gerektiğini bana butonlarla söyle!', 'warn');
+  
+  G.phase = 'playing';
+}
+
+// ── SPAWN ENEMY ─────────────────────────────────────────────────
+function spawnEnemy(type) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 14;
+
+  let geo, mat, speed, isVirus;
+  if (type === 'blue') {
+    geo = new THREE.OctahedronGeometry(0.8, 0);
+    mat = new THREE.MeshPhongMaterial({ color:0x3b82f6, emissive:0x3b82f6, emissiveIntensity:0.3 });
+    speed = 0.06;
+    isVirus = false;
+  } else if (type === 'red') {
+    geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+    mat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0xef4444, emissiveIntensity:0.4 });
+    speed = 0.05;
+    isVirus = true;
+  }
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(Math.cos(angle)*dist, 1.2, Math.sin(angle)*dist);
+  scene.add(mesh);
+  
+  const e = { mesh, type, speed, isVirus, active:true, locked:false, processed:false };
+  G.enemies.push(e);
+}
+
+// ── FLOATING TEXT ────────────────────────────────────────────────
+function showThought(mesh, text, type) {
+  const div = document.createElement('div');
+  div.className = `float-bubble ${type}`;
+  div.textContent = text;
+  document.getElementById('float-layer').appendChild(div);
+  
+  G.floatTexts.push({
+    el: div,
+    mesh: mesh,
+    t: 1.5,
+    offsetY: 2
+  });
+}
+
+// ── LOCK TARGET ──────────────────────────────────────────────────
+function lockTarget(e) {
+  G.pausedTarget = e;
+  e.locked = true;
+  G.lockTimer = 3.0; // 3 seconds to decide
+  
+  // Draw lock laser
+  const pts = [core.position.clone(), e.mesh.position.clone()];
+  const lg = new THREE.BufferGeometry().setFromPoints(pts);
+  const lm = new THREE.LineDashedMaterial({ color: 0xfbbf24, dashSize: 0.5, gapSize: 0.5 });
+  G.lockLaser = new THREE.Line(lg, lm);
+  G.lockLaser.computeLineDistances();
+  scene.add(G.lockLaser);
+  
+  showThought(e.mesh, 'Hedef Kilitlendi ➔ Bekleniyor...', 'lock');
+  document.getElementById('status-text').textContent = '⚠️ HEDEF KİLİTLENDİ. Geri Bildirim Bekleniyor...';
+  
+  // Enable buttons
+  document.getElementById('btn-reward').disabled = false;
+  document.getElementById('btn-punish').disabled = false;
+  document.getElementById('timer-container').style.display = 'block';
+  document.getElementById('timer-bar').style.width = '100%';
+}
+
+function unlockTarget() {
+  if (G.lockLaser) {
+    scene.remove(G.lockLaser);
+    G.lockLaser = null;
+  }
+  G.pausedTarget = null;
+  document.getElementById('btn-reward').disabled = true;
+  document.getElementById('btn-punish').disabled = true;
+  document.getElementById('timer-container').style.display = 'none';
+  document.getElementById('status-text').textContent = '⏳ Eğitim sürüyor... Gelecek hedefleri bekle.';
+}
+
+// ── TRAINER ACTIONS ──────────────────────────────────────────────
+window.trainAction = function(isReward) {
+  if (!G.pausedTarget) return;
+  const e = G.pausedTarget;
+  unlockTarget();
+  e.processed = true;
+  
+  let isCorrect = false;
+  if (e.isVirus && isReward) isCorrect = true; // Red + Reward = Vur = Correct
+  if (!e.isVirus && !isReward) isCorrect = true; // Blue + Punish = Geçir = Correct
+  
+  if (isCorrect) {
+    G.learning = Math.min(100, G.learning + 20);
+    showThought(e.mesh, 'Doğru! +%20 Öğrenme', 'pass');
+    bark('Harika! Doğru aksiyonu öğrendim.', 'normal');
+  } else {
+    G.learning -= 20;
+    showThought(e.mesh, 'Hata! -%20 Öğrenme', 'shoot');
+    bark('Yanlış! Bu eylem sistem için zararlı.', 'danger');
+    
+    if (G.learning < 0) {
+      if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'AI eğitimde başarısız oldu! Yanlış kararlar sistemi çökertti.');
+      return;
+    }
+  }
+  
+  updateLearningUI();
+  executeAction(e, isReward); // isReward here means "Shoot"
+};
+
+function executeAction(e, shoot) {
+  if (shoot) {
+    // Blast laser
+    const pts = [core.position.clone(), e.mesh.position.clone()];
+    const lg = new THREE.BufferGeometry().setFromPoints(pts);
+    const lm = new THREE.LineBasicMaterial({ color: 0xef4444 });
+    const beam = new THREE.Line(lg, lm);
+    scene.add(beam);
+  if(window.playLaserSound) window.playLaserSound();
+    G.lasers.push({ mesh:beam, t:0.25 });
+    
+    scene.remove(e.mesh);
+    e.active = false;
+    
+    // Blast
+    const bg = new THREE.SphereGeometry(0.6, 8, 8);
+    const bm = new THREE.MeshBasicMaterial({ color:0xef4444, wireframe:true });
+    const blast = new THREE.Mesh(bg, bm);
+    blast.position.copy(e.mesh.position);
+    scene.add(blast);
+    G.blasts.push({ mesh:blast, t:0.4 });
+    
+    if (!e.isVirus) {
+      // Shot clean data
+      if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'HATA! Temiz mavi veriyi yok ettin. Sistem zarar gördü.');
+    }
+  } else {
+    // Let pass
+    if (e.isVirus) {
+      // Let virus pass, it might hit core
+      bark('Eyvah! Virüsü geçirdik...', 'danger');
+    }
+  }
+}
+
+function updateLearningUI() {
+  document.getElementById('learn-val').textContent = G.learning;
+  
+  if (G.learning >= 100 && !G.autoPilot) {
+    G.autoPilot = true;
+    document.getElementById('trainer-panel').style.display = 'none';
+    const alert = document.getElementById('autopilot-alert');
+    alert.style.display = 'block';
+    setTimeout(() => { alert.style.display = 'none'; }, 3000);
+    document.getElementById('status-text').textContent = '🤖 OTOPİLOT AKTİF. Sistem bağımsız çalışıyor!';
+    bark('Eğitim tamamlandı! Artık kararları kendim verebilirim.', 'normal');
+  }
+}
+
+// ── AUTOPILOT LOGIC ──────────────────────────────────────────────
+let lastAutoShot = 0;
+function tryAutoPilot() {
+  if (!G.autoPilot) return;
+  if (G.time - lastAutoShot < 0.8) return;
+  
+  let target = null;
+  for (const e of G.enemies) {
+    if (!e.active || e.processed) continue;
+    const d = e.mesh.position.length();
+    if (d < 12) {
+      target = e;
+      break;
+    }
+  }
+  
+  if (!target) return;
+  lastAutoShot = G.time;
+  target.processed = true;
+  
+  if (target.isVirus) {
+    showThought(target.mesh, 'Tehdit ➔ VUR (Otopilot)', 'shoot');
+    executeAction(target, true);
+  } else {
+    showThought(target.mesh, 'Temiz ➔ GEÇİR (Otopilot)', 'pass');
+    executeAction(target, false);
+  }
+}
+
+
+// ── END GAME ─────────────────────────────────────────────────────
+function endGame(win, msg) {
+  if (G.phase === 'win' || G.phase === 'fail') return;
+  G.phase = win ? 'win' : 'fail';
+
+  const ov = document.getElementById('result-overlay');
+  ov.className = win ? 'win' : 'fail';
+  ov.style.display = 'flex';
+
+  if (win) {
+    document.getElementById('result-title').textContent = '🎉 BAŞARDIK!';
+    document.getElementById('result-title').style.color = '#10b981';
+    
+    if (MISSION === 'c-g6-3') {
+      document.getElementById('result-card').innerHTML = `
+        <div style="margin-bottom:12px;">Yapay Zeka doğru eylemleri başarıyla öğrendi ve kendi başına çalışmaya başladı! <strong>${CFG.xp} XP</strong> kazanıldı.</div>
+        <div style="background: rgba(16, 185, 129, 0.15); border-left: 3px solid #10b981; padding: 10px; text-align: left; font-size: 11.5px; color: #a7f3d0;">
+          <strong>💡 Neden Önemli?</strong><br>
+          "Pekiştirmeli Öğrenme" (Reinforcement Learning), yapay zekanın deneme yanılma yoluyla öğrenmesidir. 
+          Doğru yaptığında ödül alır (Öğrenme artar), yanlış yaptığında ceza alır (Öğrenme düşer). 
+          Zamanla sadece ödül getiren doğru davranışları seçmeyi öğrenir!
+        </div>
+      `;
+    } else {
+      document.getElementById('result-card').textContent = `Yapay Zekaya geri bildirim vererek eylemleri öğrettin! ${CFG.xp} XP kazanıldı.`;
+    }
+    
+    if (MISSION === 'c-g6-3') {
+      document.getElementById('btn-map').style.display = 'inline-block';
+    } else {
+      document.getElementById('btn-next').style.display = 'inline-block';
+    }
+    if (window.parent) window.parent.postMessage({ type:'UNDERTALE_SECTION_CLEARED', xp:CFG.xp }, '*');
+  } else {
+    document.getElementById('result-title').textContent = '💥 SİSTEM ÇÖKTÜ!';
+    document.getElementById('result-title').style.color = '#ef4444';
+    document.getElementById('result-card').textContent = msg;
+    document.getElementById('btn-retry').style.display = 'inline-block';
+  }
+}
+
+function goNext() {
+  if (MISSION === 'c-g6-1') window.parent.location.href = '/ders/c-g6-2';
+  else if (MISSION === 'c-g6-2') window.parent.location.href = '/ders/c-g6-3';
+}
+function goMap() {
+  if (window.parent) window.parent.location.href = '/dersler';
+}
+
+// ── ANIMATE LOOP ─────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  core.rotation.y += dt * 0.8;
+  core.position.y = 2.2 + Math.sin(Date.now() * 0.002) * 0.15;
+
+  if (G.phase !== 'playing') {
+    renderer.render(scene, camera);
+    return;
+  }
+  
+  if (G.pausedTarget) {
+    // Only update visual floating texts / lasers while paused
+    updateVisuals(dt);
+    renderer.render(scene, camera);
+    return; // Stop time for enemies and wave
+  }
+
+  G.time += dt;
+
+  // Spawn wave
+  if (G.waveIdx < CFG.wave.length && G.time >= CFG.wave[G.waveIdx].time) {
+    const w = CFG.wave[G.waveIdx];
+    spawnEnemy(w.type);
+    G.waveIdx++;
+  }
+
+  // Move enemies
+  G.enemies.forEach(e => {
+    if (!e.active) return;
+    const dir = new THREE.Vector3().copy(e.mesh.position).negate().normalize();
+    
+    let speedMult = G.autoPilot ? 2.5 : 1.0;
+    e.mesh.position.addScaledVector(dir, e.speed * speedMult);
+    
+    e.mesh.rotation.y += dt;
+    if (e.isVirus) {
+      e.mesh.rotation.x += dt * 1.5;
+    }
+    
+    const dist = e.mesh.position.length();
+    
+    if (dist < 12 && !e.processed && !e.locked && !G.autoPilot) {
+      lockTarget(e);
+    }
+    
+    if (dist < 2.8) {
+      if (e.isVirus) {
+        if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'Virüs çekirdeğe sızdı! Yapay zeka yozlaştı.');
+      } else {
+        // Blue clean data passes safely
+        scene.remove(e.mesh);
+        e.active = false;
+      }
+    }
+  });
+  
+  if (G.autoPilot) {
+    tryAutoPilot();
+  }
+
+  updateVisuals(dt);
+
+  // Win check
+  const hasActiveEnemies = G.enemies.some(e => e.active);
+  if (!G.winTriggered && G.waveIdx >= CFG.wave.length && !hasActiveEnemies) {
+    G.winTriggered = true;
+    setTimeout(() => endGame(true, ''), 800);
+  }
+
+  renderer.render(scene, camera);
+}
+
+function updateVisuals(dt) {
+  // Update lock timer
+  if (G.pausedTarget) {
+    G.lockTimer -= dt;
+    document.getElementById('timer-bar').style.width = Math.max(0, (G.lockTimer / 3.0) * 100) + '%';
+    
+    if (G.lockTimer <= 0) {
+      // Timeout
+      const e = G.pausedTarget;
+      unlockTarget();
+      e.processed = true;
+      G.learning -= 20;
+      showThought(e.mesh, 'Süre Bitti! -%20 Öğrenme', 'shoot');
+      bark('Çok yavaşsın! Süre dolduğu için hata yapıldı.', 'danger');
+      updateLearningUI();
+      
+      if (G.learning < 0) {
+        if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'AI eğitimde başarısız oldu! Sürekli gecikmeler sistemi çökertti.');
+      }
+      
+      // Let it pass
+      executeAction(e, false);
+    }
+  }
+
+  // Update lasers
+  G.lasers = G.lasers.filter(l => {
+    l.t -= dt;
+    if (l.t <= 0) { scene.remove(l.mesh); return false; }
+    return true;
+  });
+
+  // Update blasts
+  G.blasts = G.blasts.filter(b => {
+    b.t -= dt;
+    b.mesh.scale.multiplyScalar(1.06);
+    if (b.mesh.material) b.mesh.material.opacity = b.t / 0.4;
+    if (b.t <= 0) { scene.remove(b.mesh); return false; }
+    return true;
+  });
+
+  // Update floating texts
+  G.floatTexts = G.floatTexts.filter(ft => {
+    ft.t -= dt;
+    ft.offsetY += dt * 1.5;
+    
+    const pos = ft.mesh.position.clone();
+    pos.y += ft.offsetY;
+    pos.project(camera);
+    
+    const x = (pos.x * .5 + .5) * W();
+    const y = (pos.y * -.5 + .5) * H();
+    
+    ft.el.style.left = `${x}px`;
+    ft.el.style.top = `${y}px`;
+    ft.el.style.opacity = Math.max(0, ft.t / 1.5);
+    
+    if (ft.t <= 0) {
+      ft.el.remove();
+      return false;
+    }
+    return true;
+  });
+  
+  if (G.lockLaser && G.pausedTarget) {
+     const pts = [core.position.clone(), G.pausedTarget.mesh.position.clone()];
+     G.lockLaser.geometry.setFromPoints(pts);
+  }
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────
+showTutStep();
+animate();
+</script>
+</body>
+</html>

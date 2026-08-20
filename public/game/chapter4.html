@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEX-Core: Bölüm 4 — Mantık ve Karar Ağaçları</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:'Outfit',monospace;color:white;position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:1}
+
+/* HUD */
+#hud{position:absolute;top:0;left:0;right:0;height:48px;background:rgba(3,7,18,.97);border-bottom:1px solid rgba(245,158,11,.3);display:none;align-items:center;justify-content:space-between;padding:0 16px;z-index:50}
+.hud-badge{font-size:10px;font-weight:900;color:#F59E0B;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);padding:4px 12px;border-radius:20px}
+#mission-label{font-size:13px;font-weight:800;color:#e2e8f0}
+
+/* PALETTE */
+#palette{position:absolute;left:0;top:48px;bottom:60px;width:160px;background:rgba(3,7,18,.97);border-right:1px solid rgba(245,158,11,.15);z-index:50;overflow-y:auto;padding:10px 8px;display:none;flex-direction:column;gap:8px}
+.pal-title{font-size:8px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:1px;padding:4px;text-align:center;border-bottom:1px solid #0f172a;margin-bottom:4px}
+.pal-block{padding:10px 8px;border-radius:10px;cursor:pointer;text-align:center;border:2px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);transition:all .2s;user-select:none}
+.pal-block:hover{transform:translateY(-2px);box-shadow:0 0 14px rgba(245,158,11,.4);background:rgba(245,158,11,.18)}
+.pal-block.placed{background:rgba(245,158,11,.35);border-color:#F59E0B;cursor:default;transform:none}
+.pal-block .pb-icon{font-size:28px;line-height:1;display:block;margin-bottom:4px}
+.pal-block .pb-name{font-size:10px;font-weight:900;color:#fde68a}
+.pal-badge{padding:8px;border-radius:8px;text-align:center;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);font-size:11px;font-weight:800;color:#F59E0B}
+.pal-block:not(.placed){animation:pulseBlock 2s ease-in-out infinite}
+@keyframes pulseBlock{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.5)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+
+/* STATUS */
+#status-bar{position:absolute;bottom:0;left:0;right:0;height:52px;background:rgba(3,7,18,.95);border-top:1px solid rgba(245,158,11,.2);display:none;align-items:center;justify-content:space-between;padding:0 16px 0 170px;z-index:50}
+#status-text{font-size:12px;font-weight:800;color:#94a3b8}
+
+/* NEX BARK */
+#nex-bark{position:absolute;bottom:60px;left:8px;z-index:100;display:none;align-items:flex-end;gap:8px}
+#nex-avatar{width:44px;height:44px;border-radius:50%;background:rgba(245,158,11,.2);border:2px solid rgba(245,158,11,.4);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+#bark-bubble{background:rgba(15,23,42,.97);border:1px solid rgba(245,158,11,.5);border-radius:12px 12px 12px 2px;padding:10px 14px;max-width:260px;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.5;display:none}
+#bark-bubble.show{display:block}
+
+/* PROGRESS DOTS */
+#prog-dots{display:flex;gap:6px;align-items:center}
+.pdot{width:10px;height:10px;border-radius:50%;background:#1e293b;border:2px solid #F59E0B}
+.pdot.active{background:#F59E0B;box-shadow:0 0 8px #F59E0B}
+
+/* ACCURACY HUD */
+#accuracy-hud{font-size:12px;font-weight:900;color:#F59E0B;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);padding:4px 12px;border-radius:20px;display:none;margin-right:12px}
+
+/* TUTORIAL OVERLAY */
+#tutorial-overlay{position:absolute;inset:0;z-index:400;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center}
+.tut-box{background:#0f172a;border:2px solid #F59E0B;border-radius:16px;width:90%;max-width:640px;padding:28px;display:flex;flex-direction:column;gap:18px;box-shadow:0 0 40px rgba(245,158,11,.25);animation:tutIn .4s ease-out}
+@keyframes tutIn{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes nexFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.tut-body{display:flex;gap:20px;align-items:flex-start}
+.tut-avatar{font-size:72px;animation:nexFloat 3s ease-in-out infinite;background:rgba(245,158,11,.1);padding:16px;border-radius:16px;border:2px solid rgba(245,158,11,.3);flex-shrink:0}
+.tut-texts{flex:1;display:flex;flex-direction:column;gap:10px}
+.tut-title{font-size:17px;font-weight:900;color:#F59E0B;letter-spacing:1px;text-transform:uppercase}
+.tut-text{font-size:15px;font-weight:700;color:#e2e8f0;line-height:1.65}
+.tut-actions{display:flex;justify-content:flex-end}
+.btn-tut{padding:13px 34px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:900;border:none;border-radius:10px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn-tut.next{background:linear-gradient(135deg,#d97706,#F59E0B);color:#000;box-shadow:0 0 24px rgba(245,158,11,.4)}
+.btn-tut.go{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;box-shadow:0 0 24px rgba(245,158,11,.4)}
+.btn-tut:hover{transform:scale(1.06)}
+
+/* WIN / FAIL OVERLAY */
+#result-overlay{position:absolute;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+#result-overlay.win{background:radial-gradient(ellipse,#052e16,#030712)}
+#result-overlay.fail{background:radial-gradient(ellipse,#2d0a0a,#030712)}
+.result-title{font-size:32px;font-weight:900}
+.result-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 20px;font-size:13px;font-weight:700;color:#94a3b8;max-width:420px;line-height:1.7}
+.btn-result{padding:12px 28px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:900;border:none;border-radius:8px;cursor:pointer;margin:4px}
+.btn-retry{background:#7f1d1d;color:#fca5a5}
+
+/* CONFIG MODAL */
+#config-modal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0f172a;border:2px solid #F59E0B;border-radius:12px;padding:24px;z-index:500;display:none;flex-direction:column;gap:16px;box-shadow:0 0 40px rgba(245,158,11,.4);width:320px}
+#config-modal h3{font-size:16px;font-weight:900;color:#F59E0B;margin-bottom:8px;text-align:center;text-transform:uppercase}
+.cfg-row{display:flex;align-items:center;gap:12px;font-size:14px;font-weight:700;color:#e2e8f0;background:rgba(255,255,255,.05);padding:10px 12px;border-radius:8px;border:1px solid rgba(245,158,11,.2)}
+.cfg-row select{background:#1e293b;color:white;border:1px solid #F59E0B;padding:4px 8px;border-radius:4px;font-family:'Outfit',sans-serif;font-weight:800;outline:none;cursor:pointer}
+.cfg-action{color:#ef4444;font-weight:900}
+.cfg-pass{color:#10b981;font-weight:900}
+.btn-confirm{background:linear-gradient(135deg,#d97706,#F59E0B);color:#000;border:none;padding:12px;border-radius:8px;font-family:'Outfit',sans-serif;font-weight:900;font-size:14px;cursor:pointer;margin-top:8px;transition:transform .15s}
+.btn-confirm:hover{transform:scale(1.05)}
+
+/* FLOATING TEXTS */
+#float-layer{position:absolute;inset:0;pointer-events:none;z-index:200;overflow:hidden}
+.float-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.85);border:1px solid #334155;color:#e2e8f0;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;transition:opacity .3s;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.float-bubble.shoot{border-color:#ef4444;color:#fca5a5}
+.float-bubble.pass{border-color:#10b981;color:#6ee7b7}
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="hud-badge">BÖLÜM 4</div>
+    <div id="mission-label">Mantık ve Karar Ağaçları</div>
+  </div>
+  <div style="display:flex;align-items:center;">
+    <div id="accuracy-hud">İSABET ORANI: %<span id="acc-val">30</span></div>
+    <div id="prog-dots">
+      <div class="pdot" id="pd1"></div>
+      <div class="pdot" id="pd2"></div>
+      <div class="pdot" id="pd3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PALETTE -->
+<div id="palette">
+  <div class="pal-title">🛠 Filtreler</div>
+  <div id="pal-items"></div>
+</div>
+
+<!-- NEX BARK -->
+<div id="nex-bark">
+  <div id="nex-avatar">🤖</div>
+  <div id="bark-bubble"><span id="bark-text"></span></div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+  <span id="status-text">⏳ Filtreleri yerleştir, sonra savaş başlasın!</span>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-overlay">
+  <div class="tut-box">
+    <div class="tut-body">
+      <div class="tut-avatar">🤖</div>
+      <div class="tut-texts">
+        <div class="tut-title" id="tut-title">YÜKLENİYOR</div>
+        <div class="tut-text" id="tut-text">...</div>
+      </div>
+    </div>
+    <div class="tut-actions">
+      <button class="btn-tut next" id="tut-btn" onclick="nextTutStep()">Devam Et ➔</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT OVERLAY -->
+<div id="result-overlay">
+  <div class="result-title" id="result-title"></div>
+  <div class="result-card" id="result-card"></div>
+  <div>
+    <button class="btn-result btn-next" id="btn-next" style="display:none" onclick="goNext()">SONRAKİ GÖREVE GEÇ ➔</button>
+    <button class="btn-result btn-map" id="btn-map" style="display:none" onclick="goMap()">🗺 HARİTAYA DÖN</button>
+    <button class="btn-result btn-retry" id="btn-retry" style="display:none" onclick="location.reload()">↺ TEKRAR DENE</button>
+  </div>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div id="config-modal">
+  <h3 id="cfg-title">Ayarlar</h3>
+  <div class="cfg-row" id="cfg-condition">
+    EĞER <span id="cfg-type-label">Renk</span> == 
+    <select id="cfg-select">
+      <!-- Options injected via JS -->
+    </select>
+  </div>
+  <div class="cfg-row">
+    İSE ➔ <span class="cfg-action">SİL (Ateş Et)</span>
+  </div>
+  <div class="cfg-row">
+    DEĞİLSE ➔ <span class="cfg-pass">GEÇİR (İzin Ver)</span>
+  </div>
+  <button class="btn-confirm" onclick="confirmConfig()">Onayla ve Yerleştir</button>
+</div>
+
+<!-- FLOATING TEXTS LAYER -->
+<div id="float-layer"></div>
+
+<canvas id="c"></canvas>
+
+<script>
+'use strict';
+
+const MISSION = new URLSearchParams(window.location.search).get('mission') || 'c-g4-1';
+
+// ── TUTORIAL DATA ────────────────────────────────────────────────
+const TUT = {
+  'c-g4-1': [
+    { title: 'VERİ KARIŞIKLIĞI!', text: 'GLITCH, virüslerin arasına temiz mavi verileri de karıştırdı. Eğer hepsine ateş edersen sistem çöker!' },
+    { title: 'EĞER / DEĞİLSE MANTIĞI', text: 'Yapay zekaya kural koymalıyız. "EĞER renk kırmızıysa ATEŞ ET, DEĞİLSE geçmesine izin ver."' },
+    { title: 'GÖREV', text: '🔴 Renk Filtresi bloğunu yerleştir. Sadece kırmızı virüsleri vurup mavi verileri korumalıyız!' }
+  ],
+  'c-g4-2': [
+    { title: 'HIZLI VİRÜSLER!', text: 'GLITCH şimdi de mavi görünümüne sahip ama çok hızlı hareket eden virüsler gönderiyor.' },
+    { title: 'ÇOKLU KARAR (AND/OR)', text: 'Renk filtresi tek başına yetmez! Yapay zekanın iki şeye bakması lazım: Rengi kırmızı mı VEYA çok hızlı mı?' },
+    { title: 'GÖREV', text: 'Hem 🔴 Renk Filtresi hem de ⚡ Hız Filtresi bloklarını yerleştir.' }
+  ],
+  'c-g4-3': [
+    { title: 'KARMAŞIK SALDIRI!', text: 'Virüsler her renk ve hızda geliyor. Basit EĞER/DEĞİLSE kuralları yetersiz kalıyor.' },
+    { title: 'KARAR ORMANI (RANDOM FOREST)', text: 'Yapay zeka, birden fazla karar ağacı (Decision Tree) kullanarak bir "Karar Ormanı" oluşturur. Ne kadar çok ağaç, o kadar yüksek isabet!' },
+    { title: 'GÖREV', text: '3 adet 🌳 Karar Ağacı yerleştirerek doğruluğu %100 yap ve savunmayı tamamla!' }
+  ]
+};
+
+// ── MISSION CONFIG ───────────────────────────────────────────────
+const CFG = {
+  'c-g4-1': {
+    label: 'Görev 4.1 — Eğer/Değilse',
+    dot: 1,
+    palette: [{ id:'renk', icon:'🔴', name:'Renk Filtresi', max:1 }],
+    xp: 400,
+    wave: [
+      {time:2, type:'red'}, {time:5, type:'blue'}, {time:8, type:'red'}, {time:11, type:'blue'}, {time:14, type:'red'}
+    ]
+  },
+  'c-g4-2': {
+    label: 'Görev 4.2 — Çoklu Karar',
+    dot: 2,
+    palette: [
+      { id:'renk', icon:'🔴', name:'Renk Filtresi', max:1 },
+      { id:'hiz', icon:'⚡', name:'Hız Filtresi', max:1 }
+    ],
+    xp: 400,
+    wave: [
+      {time:2, type:'red'}, {time:4, type:'fast_blue'}, {time:6, type:'blue'}, {time:8, type:'red'}, {time:10, type:'fast_blue'}, {time:12, type:'blue'}, {time:14, type:'red'}
+    ]
+  },
+  'c-g4-3': {
+    label: 'Görev 4.3 — Karar Ormanı',
+    dot: 3,
+    palette: [
+      { id:'tree1', icon:'🌳', name:'Karar Ağacı 1', max:1 },
+      { id:'tree2', icon:'🌳', name:'Karar Ağacı 2', max:1 },
+      { id:'tree3', icon:'🌳', name:'Karar Ağacı 3', max:1 }
+    ],
+    xp: 500,
+    wave: [
+       {time:2, type:'red'}, {time:3, type:'blue'}, {time:4, type:'fast_blue'},
+       {time:6, type:'red'}, {time:7, type:'red'}, {time:8, type:'blue'},
+       {time:10, type:'fast_blue'}, {time:11, type:'blue'}, {time:12, type:'red'},
+       {time:14, type:'fast_blue'}, {time:15, type:'red'}, {time:16, type:'blue'},
+       {time:18, type:'red'}, {time:19, type:'fast_blue'}
+    ]
+  }
+}[MISSION] || (() => { window.parent.location.href = '/ders/c-g4-1'; })();
+
+// ── THREE.JS SETUP ───────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const W = () => canvas.parentElement?.clientWidth || window.innerWidth;
+const H = () => canvas.parentElement?.clientHeight || window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W(), H());
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030712);
+
+const camera = new THREE.PerspectiveCamera(60, W()/H(), 0.1, 200);
+camera.position.set(0, 16, 22);
+camera.lookAt(0, 0, 0);
+
+window.addEventListener('resize', () => {
+  renderer.setSize(W(), H());
+  camera.aspect = W()/H();
+  camera.updateProjectionMatrix();
+});
+
+// Lighting
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xF59E0B, 0.8);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
+
+// AI Core
+const coreGeo = new THREE.IcosahedronGeometry(1.5, 0);
+const coreMat = new THREE.MeshPhongMaterial({ color:0xF59E0B, emissive:0xF59E0B, emissiveIntensity:0.4, wireframe:true });
+const core = new THREE.Mesh(coreGeo, coreMat);
+core.position.y = 2.2;
+scene.add(core);
+
+const coreLight = new THREE.PointLight(0xF59E0B, 3, 8);
+coreLight.position.set(0, 2.5, 0);
+scene.add(coreLight);
+
+const baseGeo = new THREE.CylinderGeometry(3, 3.5, 0.5, 16);
+const baseMat = new THREE.MeshPhongMaterial({ color:0x222222, emissive:0xF59E0B, emissiveIntensity:0.05 });
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.position.y = 0.25;
+scene.add(base);
+
+// Rings around core
+for (let i = 0; i < 3; i++) {
+  const rg = new THREE.TorusGeometry(2 + i*0.5, 0.04, 8, 48);
+  const rm = new THREE.MeshBasicMaterial({ color: 0xF59E0B, transparent: true, opacity: 0.3 - i*0.08 });
+  const r = new THREE.Mesh(rg, rm);
+  r.rotation.x = Math.PI/2 + i * 0.3;
+  r.position.y = 2.2;
+  scene.add(r);
+}
+
+// Grid
+const grid = new THREE.GridHelper(50, 50, 0xF59E0B, 0x0f172a);
+scene.add(grid);
+
+// ── GAME STATE ───────────────────────────────────────────────────
+const G = {
+  phase: 'waiting',    // waiting | playing | config | win | fail
+  time: 0,
+  enemies: [],
+  lasers: [],
+  blasts: [],
+  floatTexts: [],
+  waveIdx: 0,
+  killed: 0,
+  safePassed: 0,
+  placed: [],         // sensor ids placed
+  winTriggered: false
+};
+
+// ── UI INIT ──────────────────────────────────────────────────────
+document.getElementById('mission-label').textContent = CFG.label;
+
+// Progress dots
+const dotMap = { 1:'pd1', 2:'pd2', 3:'pd3' };
+for (let i = 1; i <= CFG.dot; i++) {
+  document.getElementById(dotMap[i]).classList.add('active');
+}
+
+// Accuracy UI
+if (MISSION === 'c-g4-3') {
+  document.getElementById('accuracy-hud').style.display = 'block';
+}
+
+// Palette items
+const palItems = document.getElementById('pal-items');
+CFG.palette.forEach(p => {
+  const d = document.createElement('div');
+  d.className = 'pal-block';
+  d.id = 'pb-' + p.id;
+  d.innerHTML = `<span class="pb-icon">${p.icon}</span><span class="pb-name">${p.name}</span>`;
+  d.onclick = () => placeBlock(p.id, d);
+  palItems.appendChild(d);
+});
+
+// ── NEX BARK ─────────────────────────────────────────────────────
+let barkTimer = null;
+function bark(txt, mood='normal') {
+  const el = document.getElementById('bark-bubble');
+  document.getElementById('bark-text').textContent = txt;
+  el.style.borderColor = mood==='danger'?'#ef4444':mood==='warn'?'#f59e0b':'#F59E0B';
+  el.classList.add('show');
+  clearTimeout(barkTimer);
+  barkTimer = setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+// ── TUTORIAL ─────────────────────────────────────────────────────
+let tutStep = 0;
+const tutSteps = TUT[MISSION] || TUT['c-g4-1'];
+
+function showTutStep() {
+  const s = tutSteps[tutStep];
+  document.getElementById('tut-title').textContent = s.title;
+  document.getElementById('tut-text').textContent = s.text;
+  const btn = document.getElementById('tut-btn');
+  if (tutStep === tutSteps.length - 1) {
+    btn.textContent = '⚡ GÖREVE BAŞLA!';
+    btn.className = 'btn-tut go';
+  } else {
+    btn.textContent = 'Devam Et ➔';
+    btn.className = 'btn-tut next';
+  }
+}
+
+function nextTutStep() {
+  tutStep++;
+  if (tutStep >= tutSteps.length) {
+    startGame();
+  } else {
+    showTutStep();
+  }
+}
+
+function startGame() {
+  document.getElementById('tutorial-overlay').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('palette').style.display = 'flex';
+  document.getElementById('nex-bark').style.display = 'flex';
+  document.getElementById('status-bar').style.display = 'flex';
+  
+  if (MISSION === 'c-g4-1') {
+    document.getElementById('status-text').textContent = '⏳ Sadece kırmızıları vurmalıyız!';
+    bark('🔴 Renk Filtresini yerleştir ve mavi verileri koru!', 'danger');
+  } else if (MISSION === 'c-g4-2') {
+    document.getElementById('status-text').textContent = '⏳ Çok hızlı ve kırmızı virüsleri durdur!';
+    bark('🔴 Renk ve ⚡ Hız Filtresini kullan!', 'warn');
+  } else if (MISSION === 'c-g4-3') {
+    document.getElementById('status-text').textContent = '⏳ Karar Ormanı kur!';
+    bark('İsabet oranını %100 yapmak için 🌳 Karar Ağaçlarını yerleştir!', 'danger');
+  }
+  G.phase = 'playing';
+}
+
+// ── PLACE BLOCK (WITH CONFIG MODAL) ──────────────────────────────
+let pendingBlockId = null;
+let pendingBlockEl = null;
+
+function placeBlock(id, el) {
+  if (el.classList.contains('placed')) return;
+  
+  if (id === 'renk' || id === 'hiz') {
+    // Show Config Modal
+    pendingBlockId = id;
+    pendingBlockEl = el;
+    
+    // Pause the game while configuring
+    if (G.phase === 'playing') G.phase = 'config';
+    
+    document.getElementById('cfg-title').textContent = id === 'renk' ? '🔴 Renk Filtresi Ayarı' : '⚡ Hız Filtresi Ayarı';
+    document.getElementById('cfg-type-label').textContent = id === 'renk' ? 'Renk' : 'Hız';
+    
+    const sel = document.getElementById('cfg-select');
+    sel.innerHTML = '<option value="" disabled selected>-- Kural Seç --</option>';
+    if (id === 'renk') {
+      sel.innerHTML += `<option value="red">Kırmızı</option><option value="blue">Mavi</option>`;
+    } else {
+      sel.innerHTML += `<option value="fast">Hızlı (> 0.10)</option><option value="slow">Yavaş (< 0.10)</option>`;
+    }
+    
+    document.getElementById('config-modal').style.display = 'flex';
+  } else {
+    // Decision Trees just get placed directly
+    finalizePlacement(id, el, null);
+  }
+}
+
+function confirmConfig() {
+  const val = document.getElementById('cfg-select').value;
+  if (!val) {
+    alert('Lütfen bir kural seçimi yapın!');
+    return;
+  }
+  document.getElementById('config-modal').style.display = 'none';
+  
+  // Resume game
+  if (G.phase === 'config') G.phase = 'playing';
+  
+  finalizePlacement(pendingBlockId, pendingBlockEl, val);
+}
+
+function finalizePlacement(id, el, configVal) {
+  el.classList.add('placed');
+  G.placed.push({ id, configVal });
+
+  if (id === 'renk') {
+    bark(`🔴 Renk filtresi eklendi! Kural: EĞER Renk == ${configVal === 'red' ? 'Kırmızı' : 'Mavi'} İSE SİL.`, 'normal');
+    document.getElementById('status-text').textContent = '🔴 Renk Filtresi AKTİF';
+    addPlacementVisuals();
+  } else if (id === 'hiz') {
+    bark(`⚡ Hız filtresi eklendi! Kural: EĞER Hız == ${configVal === 'fast' ? 'Hızlı' : 'Yavaş'} İSE SİL.`, 'normal');
+    document.getElementById('status-text').textContent = '⚡ Hız Filtresi AKTİF';
+    addPlacementVisuals();
+  } else if (id.startsWith('tree')) {
+    bark(`🌳 ${el.textContent} devrede! Karar Ormanı büyüyor.`, 'normal');
+    document.getElementById('acc-val').textContent = G.placed.length === 1 ? '60' : G.placed.length === 2 ? '80' : '100';
+    addPlacementVisuals();
+    if (G.placed.length === 3) {
+      document.getElementById('status-text').textContent = '🌳 Karar Ormanı Tamam! İsabet oranı %100.';
+    }
+  }
+}
+
+function addPlacementVisuals() {
+  const blastGeo = new THREE.RingGeometry(0.5, 1.2, 64);
+  const blastMat = new THREE.MeshBasicMaterial({ color:0xF59E0B, transparent:true, opacity:0.8, side:THREE.DoubleSide });
+  const blast = new THREE.Mesh(blastGeo, blastMat);
+  blast.rotation.x = -Math.PI/2;
+  blast.position.y = 0.5;
+  scene.add(blast);
+  let s = 1;
+  const animBlast = () => {
+    s += 0.4;
+    blast.scale.setScalar(s);
+    blastMat.opacity -= 0.02;
+    if(blastMat.opacity > 0) requestAnimationFrame(animBlast);
+    else scene.remove(blast);
+  };
+  animBlast();
+}
+
+// ── SPAWN ENEMY ─────────────────────────────────────────────────
+function spawnEnemy(type) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 14;
+
+  let geo, mat, speed, isVirus;
+  if (type === 'red') {
+    geo = new THREE.BoxGeometry(1, 1, 1);
+    mat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0xef4444, emissiveIntensity:0.3 });
+    speed = 0.06;
+    isVirus = true;
+  } else if (type === 'blue') {
+    geo = new THREE.OctahedronGeometry(0.8, 0);
+    mat = new THREE.MeshPhongMaterial({ color:0x3b82f6, emissive:0x3b82f6, emissiveIntensity:0.3 });
+    speed = 0.06;
+    isVirus = false;
+  } else if (type === 'fast_blue') {
+    geo = new THREE.OctahedronGeometry(0.8, 0);
+    mat = new THREE.MeshPhongMaterial({ color:0x0ea5e9, emissive:0x0ea5e9, emissiveIntensity:0.4 });
+    speed = 0.12;
+    isVirus = true;
+  }
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(Math.cos(angle)*dist, 1.2, Math.sin(angle)*dist);
+  scene.add(mesh);
+  
+  const e = { mesh, type, speed, isVirus, active:true };
+  
+  if (MISSION === 'c-g4-3') {
+     const trees = G.placed.length;
+     let accuracy = trees === 0 ? 0.3 : trees === 1 ? 0.6 : trees === 2 ? 0.8 : 1.0;
+     if (isVirus) e.wantsToShoot = Math.random() < accuracy;
+     else e.wantsToShoot = Math.random() > accuracy;
+  }
+  
+  G.enemies.push(e);
+}
+
+// ── FLOATING TEXT ────────────────────────────────────────────────
+function showThought(mesh, text, type) {
+  const div = document.createElement('div');
+  div.className = `float-bubble ${type}`;
+  div.textContent = text;
+  document.getElementById('float-layer').appendChild(div);
+  
+  G.floatTexts.push({
+    el: div,
+    mesh: mesh,
+    t: 1.5,
+    offsetY: 2
+  });
+}
+
+// ── SHOOT ────────────────────────────────────────────────────────
+let lastShot = 0;
+function tryShoot(dt) {
+  if (G.time - lastShot < 0.8) return;
+
+  let target = null;
+  for (const e of G.enemies) {
+    if (!e.active) continue;
+
+    let shouldShoot = false;
+    let logicReason = '';
+    
+    if (MISSION === 'c-g4-1') {
+      const renkFiltresi = G.placed.find(p => p.id === 'renk');
+      if (renkFiltresi) {
+        shouldShoot = (e.type === renkFiltresi.configVal);
+        logicReason = `Renk: ${e.type === 'red' ? 'Kırmızı' : 'Mavi'}`;
+      } else {
+        shouldShoot = true;
+        logicReason = `Filtresiz: Bilinmiyor`;
+      }
+    } else if (MISSION === 'c-g4-2') {
+      const rF = G.placed.find(p => p.id === 'renk');
+      const hF = G.placed.find(p => p.id === 'hiz');
+      
+      if (!rF && !hF) {
+        shouldShoot = true;
+        logicReason = 'Filtresiz';
+      } else {
+        if (rF && e.type === rF.configVal) {
+           shouldShoot = true;
+           logicReason = `Renk: ${e.type === 'red' ? 'Kırmızı' : 'Mavi'}`;
+        }
+        if (hF) {
+            const isTargetSpeed = (hF.configVal === 'fast') ? (e.speed >= 0.1) : (e.speed < 0.1);
+            if (isTargetSpeed) {
+                shouldShoot = true;
+                logicReason = `Hız: ${e.speed >= 0.1 ? 'Hızlı' : 'Yavaş'}`;
+            }
+        }
+        if (!shouldShoot) {
+            logicReason = `Eşleşme Yok`;
+        }
+      }
+    } else if (MISSION === 'c-g4-3') {
+      shouldShoot = e.wantsToShoot;
+      logicReason = `Orman Kararı: ${Math.round(Math.random()*100)}%`;
+    }
+
+    const d = e.mesh.position.length();
+    
+    // Add logic bubble when first entering range
+    if (d < 12.5 && !e.scanned) {
+        e.scanned = true;
+        if (!shouldShoot) {
+            showThought(e.mesh, `${logicReason} ➔ GEÇ`, 'pass');
+        }
+    }
+
+    if (d < 12 && shouldShoot) {
+      target = e;
+      target.lastReason = logicReason;
+      break;
+    }
+  }
+
+  if (!target) return;
+  lastShot = G.time;
+
+  showThought(target.mesh, `${target.lastReason} ➔ SİL`, 'shoot');
+
+  // Laser beam
+  const pts = [core.position.clone(), target.mesh.position.clone()];
+  const lg = new THREE.BufferGeometry().setFromPoints(pts);
+  const lm = new THREE.LineBasicMaterial({ color: 0xF59E0B });
+  const beam = new THREE.Line(lg, lm);
+  scene.add(beam);
+  if(window.playLaserSound) window.playLaserSound();
+  G.lasers.push({ mesh:beam, t:0.25 });
+
+  if (!target.isVirus) {
+    if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'HATA! Temiz mavi veriyi vurdun. Sistem zarar gördü.');
+    return;
+  }
+
+  // Destroy
+  scene.remove(target.mesh);
+  target.active = false;
+  G.killed++;
+
+  // Blast
+  const bg = new THREE.SphereGeometry(0.6, 8, 8);
+  const bm = new THREE.MeshBasicMaterial({ color:0xfbbf24, wireframe:true });
+  const blast = new THREE.Mesh(bg, bm);
+  blast.position.copy(target.mesh.position);
+  scene.add(blast);
+  G.blasts.push({ mesh:blast, t:0.4 });
+
+  document.getElementById('status-text').textContent = `✅ Yok Edilen Virüs: ${G.killed}`;
+}
+
+// ── END GAME ─────────────────────────────────────────────────────
+function endGame(win, msg) {
+  if (G.phase === 'win' || G.phase === 'fail') return;
+  G.phase = win ? 'win' : 'fail';
+
+  const ov = document.getElementById('result-overlay');
+  ov.className = win ? 'win' : 'fail';
+  ov.style.display = 'flex';
+
+  if (win) {
+    document.getElementById('result-title').textContent = '🎉 BAŞARDIK!';
+    document.getElementById('result-title').style.color = '#F59E0B';
+    
+    if (MISSION === 'c-g4-3') {
+      document.getElementById('result-card').innerHTML = `
+        <div style="margin-bottom:12px;">Yapay Zeka, Karar Ormanı sayesinde kusursuz kararlar almayı öğrendi! <strong>${CFG.xp} XP</strong> kazanıldı.</div>
+        <div style="background: rgba(245, 158, 11, 0.15); border-left: 3px solid #F59E0B; padding: 10px; text-align: left; font-size: 11.5px; color: #fcd34d;">
+          <strong>💡 Neden Önemli?</strong><br>
+          Gerçek hayatta otopilotlar veya sağlık yapay zekaları, verileri analiz etmek için devasa "Eğer/Değilse" zincirleri (Karar Ağaçları) kullanırlar. 
+          Tek bir "Eğer" kuralının bile eksik olması felaketlere yol açabilir. Bugün kurduğun mantık kapıları, yapay zekanın dünyayı güvenle anlamasının temelidir!
+        </div>
+      `;
+    } else {
+      document.getElementById('result-card').textContent = `Yapay Zeka doğru karar vermeyi öğrendi! ${CFG.xp} XP kazanıldı.`;
+    }
+    
+    if (MISSION === 'c-g4-3') {
+      document.getElementById('btn-map').style.display = 'inline-block';
+    } else {
+      document.getElementById('btn-next').style.display = 'inline-block';
+    }
+    if (window.parent) window.parent.postMessage({ type:'UNDERTALE_SECTION_CLEARED', xp:CFG.xp }, '*');
+  } else {
+    document.getElementById('result-title').textContent = '💥 SİSTEM ÇÖKTÜ!';
+    document.getElementById('result-title').style.color = '#ef4444';
+    document.getElementById('result-card').textContent = msg;
+    document.getElementById('btn-retry').style.display = 'inline-block';
+  }
+}
+
+function goNext() {
+  if (MISSION === 'c-g4-1') window.parent.location.href = '/ders/c-g4-2';
+  else if (MISSION === 'c-g4-2') window.parent.location.href = '/ders/c-g4-3';
+}
+function goMap() {
+  if (window.parent) window.parent.location.href = '/dersler';
+}
+
+// ── ANIMATE LOOP ─────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  core.rotation.y += dt * 0.8;
+  core.position.y = 2.2 + Math.sin(Date.now() * 0.002) * 0.15;
+
+  if (G.phase !== 'playing') {
+    renderer.render(scene, camera);
+    return;
+  }
+
+  G.time += dt;
+
+  // Spawn wave
+  if (G.waveIdx < CFG.wave.length && G.time >= CFG.wave[G.waveIdx].time) {
+    const w = CFG.wave[G.waveIdx];
+    spawnEnemy(w.type);
+    G.waveIdx++;
+  }
+
+  // Move enemies
+  G.enemies.forEach(e => {
+    if (!e.active) return;
+    const dir = new THREE.Vector3().copy(e.mesh.position).negate().normalize();
+    e.mesh.position.addScaledVector(dir, e.speed);
+    
+    if (e.type === 'red') {
+      e.mesh.rotation.x += dt * 1.5;
+      e.mesh.rotation.y += dt * 1.5;
+    } else {
+      e.mesh.rotation.y += dt;
+    }
+    
+    const dist = e.mesh.position.length();
+    if (dist < 2.8) {
+      if (e.isVirus) {
+        if(window.playExplosionSound) window.playExplosionSound(); endGame(false, 'Virüs çekirdeğe ulaştı! Filtreleri yeterince hızlı kuramadık.');
+      } else {
+        // Blue clean data passes safely
+        scene.remove(e.mesh);
+        e.active = false;
+        G.safePassed++;
+      }
+    }
+  });
+
+  // Shoot
+  tryShoot(dt);
+
+  // Update lasers
+  G.lasers = G.lasers.filter(l => {
+    l.t -= dt;
+    if (l.t <= 0) { scene.remove(l.mesh); return false; }
+    return true;
+  });
+
+  // Update blasts
+  G.blasts = G.blasts.filter(b => {
+    b.t -= dt;
+    b.mesh.scale.multiplyScalar(1.06);
+    if (b.mesh.material) b.mesh.material.opacity = b.t / 0.4;
+    if (b.t <= 0) { scene.remove(b.mesh); return false; }
+    return true;
+  });
+
+  // Update floating texts
+  G.floatTexts = G.floatTexts.filter(ft => {
+    ft.t -= dt;
+    ft.offsetY += dt * 1.5;
+    
+    // Project 3D pos to 2D screen
+    const pos = ft.mesh.position.clone();
+    pos.y += ft.offsetY;
+    pos.project(camera);
+    
+    const x = (pos.x * .5 + .5) * W();
+    const y = (pos.y * -.5 + .5) * H();
+    
+    ft.el.style.left = `${x}px`;
+    ft.el.style.top = `${y}px`;
+    ft.el.style.opacity = Math.max(0, ft.t / 1.5);
+    
+    if (ft.t <= 0) {
+      ft.el.remove();
+      return false;
+    }
+    return true;
+  });
+
+  // Win check
+  const hasActiveEnemies = G.enemies.some(e => e.active);
+  if (!G.winTriggered && G.waveIdx >= CFG.wave.length && !hasActiveEnemies) {
+    G.winTriggered = true;
+    setTimeout(() => endGame(true, ''), 800);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ── BOOT ─────────────────────────────────────────────────────────
+showTutStep();
+animate();
+</script>
+</body>
+</html>

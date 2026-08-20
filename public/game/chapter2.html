@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEX-Core: Bölüm 2 — Kalıp Avcısı</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;font-family:'Outfit',sans-serif}
+#app{position:fixed;inset:0;width:100%;height:100%}
+canvas{display:block;position:absolute;inset:0;width:100%!important;height:100%!important}
+
+/* HUD TOP */
+#hud-top{position:absolute;top:0;left:0;right:0;height:44px;display:none;align-items:center;justify-content:space-between;padding:0 16px 0 160px;background:rgba(3,7,18,.95);border-bottom:1px solid rgba(139,92,246,.25);z-index:50;pointer-events:none}
+.chapter-badge{font-size:10px;font-weight:900;color:#a78bfa;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);padding:4px 12px;border-radius:20px}
+#mission-label{font-size:13px;font-weight:800;color:#e2e8f0}
+
+/* PALETTE */
+#palette{position:absolute;left:0;top:0;bottom:0;width:150px;background:rgba(3,7,18,.97);border-right:1px solid rgba(139,92,246,.15);display:none;flex-direction:column;z-index:50;overflow-y:auto;padding-top:8px}
+.pal-header{padding:8px;font-size:8px;font-weight:900;color:#475569;text-align:center;border-bottom:1px solid #0f172a;letter-spacing:1px;text-transform:uppercase}
+.pal-sep{padding:8px 8px 2px;font-size:8px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:1px}
+.pal-block{margin:4px 8px;padding:8px 6px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;border:2px solid transparent;transition:all .2s;position:relative;user-select:none}
+.pal-block.locked{opacity:.3;pointer-events:none}
+.pal-block:not(.locked):hover{transform:translateY(-2px)}
+.pal-block.selected{box-shadow:0 0 14px rgba(255,255,255,.2)}
+.pal-block .be{font-size:26px;line-height:1}
+.pal-block .bn{font-size:9px;font-weight:900;text-align:center;line-height:1.3}
+.lock-lbl{font-size:8px;color:#64748b;text-align:center}
+.pb-v{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3)}.pb-v .bn{color:#f87171}
+.pb-v.selected{border-color:#ef4444;background:rgba(239,68,68,.22)}
+.pb-d{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3)}.pb-d .bn{color:#60a5fa}
+.pb-d.selected{border-color:#3b82f6;background:rgba(59,130,246,.22)}
+.pb-b{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.35)}.pb-b .bn{color:#c4b5fd}
+.pb-b.selected{border-color:#8b5cf6;background:rgba(139,92,246,.25)}
+.pb-s{background:rgba(236,72,153,.1);border-color:rgba(236,72,153,.3)}.pb-s .bn{color:#f9a8d4}
+.pb-s.selected{border-color:#ec4899;background:rgba(236,72,153,.22)}
+
+/* POWER HUD */
+#power-hud{position:absolute;bottom:0;left:0;right:0;height:52px;display:none;align-items:center;justify-content:space-between;padding:0 16px 0 160px;background:rgba(3,7,18,.95);border-top:1px solid rgba(139,92,246,.2);z-index:50}
+#power-hud button{padding:10px 24px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-family:'Outfit',sans-serif;font-size:12px;font-weight:900;border:none;border-radius:8px;cursor:pointer;transition:all .2s}
+#power-hud button:hover{transform:scale(1.05);box-shadow:0 0 20px rgba(139,92,246,.5)}
+#status-text{font-size:12px;font-weight:800;color:#94a3b8}
+
+/* NEX */
+#nex-bark{position:absolute;bottom:60px;left:8px;z-index:100;display:none;align-items:flex-end;gap:8px}
+#nex-avatar{width:44px;height:44px;border-radius:50%;background:rgba(139,92,246,.2);border:2px solid rgba(139,92,246,.4);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+#bark-bubble{background:rgba(15,23,42,.97);border:1px solid rgba(139,92,246,.4);border-radius:12px 12px 12px 2px;padding:10px 14px;max-width:260px;font-size:12px;font-weight:700;color:#e2e8f0;line-height:1.5;display:none}
+#bark-bubble.show{display:block}
+
+/* ══ EĞİTİM (TUTORIAL) EKRANI ══ */
+#tutorial-overlay {
+  position: absolute; inset: 0; z-index: 400;
+  background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+}
+.tutorial-box {
+  background: #0f172a; border: 2px solid #8b5cf6; border-radius: 16px;
+  width: 90%; max-width: 650px; padding: 30px;
+  display: flex; flex-direction: column; gap: 20px;
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.2);
+  transform: translateY(20px); opacity: 0;
+  animation: modalEnter 0.4s forwards ease-out;
+}
+@keyframes modalEnter { to { transform: translateY(0); opacity: 1; } }
+@keyframes nexFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.tutorial-content { display: flex; gap: 24px; align-items: flex-start; }
+.tutorial-avatar { font-size: 80px; animation: nexFloat 3s ease-in-out infinite; background: rgba(139, 92, 246, 0.1); padding: 20px; border-radius: 20px; border: 2px solid rgba(139, 92, 246, 0.3); }
+.tutorial-text-area { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.tutorial-title { font-size: 18px; font-weight: 900; color: #c4b5fd; line-height: 1.5; letter-spacing: 1px; text-transform: uppercase; }
+.tutorial-text { font-size: 16px; font-weight: 700; color: #e2e8f0; line-height: 1.6; }
+.tutorial-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+.btn-primary {
+  padding: 14px 36px;
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  color: #fff; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 900;
+  border: none; border-radius: 10px; cursor: pointer;
+  box-shadow: 0 0 28px rgba(139, 92, 246, 0.5);
+  transition: transform .15s, box-shadow .15s;
+}
+.btn-primary:hover { transform: scale(1.06); box-shadow: 0 0 40px rgba(139, 92, 246, 0.7); }
+
+/* OVERLAYS */
+.overlay{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center}
+#win-screen{background:radial-gradient(ellipse,#052e16,#030712)}.win-title{font-size:32px;font-weight:900;color:#22c55e}
+#fail-screen{background:radial-gradient(ellipse,#2d0a0a,#030712)}.fail-title{font-size:28px;font-weight:900;color:#ef4444}
+.result-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 20px;font-size:13px;font-weight:700;color:#94a3b8;max-width:400px;line-height:1.7}
+.xp-badge{font-size:20px;font-weight:900;color:#fbbf24}
+.btn-restart{padding:10px 28px;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:900;border:none;border-radius:8px;cursor:pointer}
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+<div id="app">
+<canvas id="c"></canvas>
+
+<!-- HUD -->
+<div id="hud-top">
+  <div class="chapter-badge">BÖLÜM 2</div>
+  <div id="mission-label">Kalıp Avcısı</div>
+</div>
+
+<!-- PALETTE -->
+<div id="palette">
+  <div class="pal-header">🎓 Eğitim Blokları</div>
+  <div class="pal-sep">📦 Veri</div>
+  <div class="pal-block pb-v" id="pb-v" onclick="sel('v')">
+    <span class="be">🦠</span><span class="bn">Virüs Örneği</span>
+  </div>
+  <div class="pal-block pb-d" id="pb-d" onclick="sel('d')">
+    <span class="be">💾</span><span class="bn">Temiz Veri</span>
+  </div>
+  <div class="pal-sep">🧠 Nöronlar</div>
+  <div class="pal-block pb-b" id="pb-b" onclick="sel('b')">
+    <span class="be">📐</span><span class="bn">Boyut Nöronu</span>
+    <span class="lock-lbl" id="lock-b"></span>
+  </div>
+  <div class="pal-block pb-s" id="pb-s" onclick="sel('s')">
+    <span class="be">💠</span><span class="bn">Şekil Nöronu</span>
+    <span class="lock-lbl" id="lock-s"></span>
+  </div>
+</div>
+
+<!-- POWER HUD -->
+<div id="power-hud">
+  <span id="status-text">🧠 Blokları yerleştir, sonra sistemi başlat!</span>
+  <button onclick="activate()">▶ SİSTEMİ TEST ET</button>
+</div>
+
+<!-- NEX -->
+<div id="nex-bark">
+  <div id="nex-avatar">🤖</div>
+  <div id="bark-bubble"><span id="bark-text"></span></div>
+</div>
+
+<!-- TUTORIAL MODAL -->
+<div id="tutorial-overlay">
+  <div class="tutorial-box">
+    <div class="tutorial-content">
+      <div class="tutorial-avatar">🤖</div>
+      <div class="tutorial-text-area">
+        <div class="tutorial-title" id="tut-title">YÜKLENİYOR...</div>
+        <div class="tutorial-text" id="tut-text">...</div>
+      </div>
+    </div>
+    <div class="tutorial-actions">
+      <button class="btn-primary" id="tut-btn" onclick="nextTutorialStep()">Devam Et ➔</button>
+    </div>
+  </div>
+</div>
+
+<!-- WIN -->
+<div class="overlay" id="win-screen">
+  <div class="win-title">🎉 BAŞARDIK!</div>
+  <div class="result-card"><p>Yapay Zeka yeni kalıpları öğrendi ve saldırıyı püskürttü!</p></div>
+  <div class="xp-badge" id="xp-display">+200 XP</div>
+  <button class="btn-restart" id="btn-next-mission" onclick="finishLevel()" style="display:none; margin-top:10px;">SONRAKİ GÖREVE GEÇ ➔</button>
+  <button class="btn-restart" id="btn-finish-chapter" onclick="closeGame()" style="display:none; margin-top:10px;">HARİTAYA DÖN ➔</button>
+</div>
+
+<!-- FAIL -->
+<div class="overlay" id="fail-screen">
+  <div class="fail-title">💥 SİSTEM ÇÖKTÜ!</div>
+  <div class="result-card"><p id="fail-reason">Bir virüs içeri sızdı.</p></div>
+  <button class="btn-restart" onclick="location.reload()">↺ TEKRAR DENE</button>
+</div>
+
+</div><!-- /app -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+// ── MISSION CONFIG ──────────────────────────────────────────────
+const MISSION = new URLSearchParams(window.location.search).get('mission') || 'c-g2-1';
+const CFGMAP = {
+  'c-g2-1':{
+    title:'MİSYON 2.1: Boyut Filtresi',
+    story:`<strong>⚠️ GLITCH aklını başına topladı!</strong><br>Artık <span class='danger'>devasa mavi</span> Truva Atı virüsler gönderiyor.<br>Yapay Zeka "Mavi = Temiz" sandığı için bunları içeri alıyor!<br><br>Çözüm: <strong>📐 Boyut Nöronu</strong> bloğunu yerleştir.<br><span class='success'>Yapay Zeka artık boyuta bakarak Truva Atını fark edecek!</span>`,
+    blocks:{v:true,d:true,b:true,s:false},
+    reqB:1, reqS:0, xp:200,
+    wave:[{t:'v',dl:800},{t:'bb',dl:2500},{t:'v',dl:4500},{t:'bb',dl:6500},{t:'v',dl:8000}],
+    bark:'Truva Atı mavi görünüyor ama DEV boyutlu! Boyut Filtresi lazım!'
+  },
+  'c-g2-2':{
+    title:'MİSYON 2.2: Şekil Filtresi',
+    story:`<strong>⚠️ Yeni tehlike!</strong><br>GLITCH virüsleri şimdi <span class='danger'>farklı şekillerde</span> gönderiyor!<br>Yapay Zeka sadece "Kırmızı Küp = Virüs" biliyor.<br><br>Çözüm: <strong>💠 Şekil Nöronu</strong> ekle.<br><span class='success'>Artık şekli ne olursa olsun virüsü tanıyacak!</span>`,
+    blocks:{v:true,d:true,b:false,s:true},
+    reqB:0, reqS:1, xp:250,
+    wave:[{t:'v',dl:800},{t:'hv',dl:2500},{t:'v',dl:4500},{t:'hv',dl:6500},{t:'v',dl:8500}],
+    bark:'Virüsler artık farklı şekillere bürünüyor! Şekle de bakmalıyız!'
+  },
+  'c-g2-3':{
+    title:'MİSYON 2.3: Kamuflaj Ağı',
+    story:`<strong>⚠️ TAM SALDIRI!</strong><br>GLITCH hem <strong>Büyük Mavi (Truva Atı)</strong> hem <strong>Şekil Değiştiren</strong> saldırıları yapıyor!<br><br>Çözüm: <strong>Her iki nöronu</strong> da yerleştir.<br><span class='success'>İki filtreyi birleştirerek nihai savunmayı kur!</span>`,
+    blocks:{v:true,d:true,b:true,s:true},
+    reqB:1, reqS:1, xp:350,
+    wave:[{t:'v',dl:600},{t:'bb',dl:2000},{t:'hv',dl:3500},{t:'v',dl:5000},{t:'bb',dl:6500},{t:'hv',dl:8000}],
+    bark:'GLITCH hem boyut hem şekil değiştiriyor! İki filtre birden lazım!'
+  }
+};
+const CFG = CFGMAP[MISSION] || CFGMAP['c-g2-1'];
+
+const TUTORIAL_DATA = {
+  'c-g2-1': [
+    { title: 'YENİ TEHDİT: TRUVA ATI', text: 'Mimar, düşmanımız GLITCH akıllandı! Bize mavi renkli ama devasa büyüklükte bir virüs (Truva Atı) gönderiyor.' },
+    { title: 'BOYUT FİLTRESİ', text: 'Ben sadece "Mavi = Dost" diye eğitildim. O yüzden bu dev mavi virüsü içeri alıyorum. Bana boyutları ayırt etmeyi öğretmen lazım.' },
+    { title: 'GÖREV', text: 'Paletten "Boyut Nöronu" bloğunu yerleştir. Böylece nesnelerin sadece rengine değil, büyüklüğüne de bakmayı öğreneceğim!' }
+  ],
+  'c-g2-2': [
+    { title: 'KAMUFLAJLI VİRÜSLER', text: 'Olamaz! GLITCH virüslerin şeklini değiştirmeye başladı. Küp yerine farklı geometrik şekillerde (küre) geliyorlar.' },
+    { title: 'ŞEKİL FİLTRESİ', text: 'Ben sadece "Kırmızı Küp = Virüs" olarak eğitilmiştim. Farklı şekilleri tanıyamıyorum.' },
+    { title: 'GÖREV', text: 'Bana "Şekil Nöronu" bloğunu ekle. Böylece bir nesnenin sadece rengine değil, karmaşık şekillerine de bakıp gizli virüsleri tanıyabilirim!' }
+  ],
+  'c-g2-3': [
+    { title: 'TAM SALDIRI!', text: 'GLITCH tüm gücüyle saldırıyor! Hem Dev Mavi Truva Atları hem de Şekil Değiştiren kırmızı virüsler yolluyor.' },
+    { title: 'ÇOKLU ÖĞRENME', text: 'Artık yapay zeka beynimin iki şeye birden dikkat etmesi gerekiyor: Boyut ve Şekil.' },
+    { title: 'GÖREV', text: 'Hem Boyut Nöronunu hem de Şekil Nöronunu yerleştirerek savunma ağımı tamamla. İkisini birden kullanırsam yenilmez oluruz!' }
+  ]
+};
+
+// ── SETUP UI ────────────────────────────────────────────────────
+document.getElementById('mission-label').textContent = CFG.title;
+document.getElementById('xp-display').textContent = `+${CFG.xp} XP KAZANILDI! 🌟`;
+if(!CFG.blocks.b){document.getElementById('pb-b').classList.add('locked');document.getElementById('lock-b').textContent='🔒 Kilitli';}
+if(!CFG.blocks.s){document.getElementById('pb-s').classList.add('locked');document.getElementById('lock-s').textContent='🔒 Kilitli';}
+
+// ── THREE.JS SETUP ───────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const W = ()=>canvas.parentElement.clientWidth||window.innerWidth;
+const H = ()=>canvas.parentElement.clientHeight||window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setClearColor(0x030712,1);
+renderer.setSize(W(),H());
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, W()/H(), 0.1, 200);
+camera.position.set(0,11,14);
+camera.lookAt(0,1,0);
+
+// Lights
+scene.add(new THREE.AmbientLight(0x1a1040,4));
+const sun = new THREE.DirectionalLight(0xffffff,1.5); sun.position.set(5,10,5); scene.add(sun);
+const pl = new THREE.PointLight(0x8b5cf6,3,20); pl.position.set(0,4,0); scene.add(pl);
+
+// Ground + Grid
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshLambertMaterial({color:0x050812}));
+ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+scene.add(new THREE.GridHelper(40,40,0x1e293b,0x0f172a));
+
+// AI Core
+const aiBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.8,0.3,32),new THREE.MeshLambertMaterial({color:0x1e293b}));
+scene.add(aiBase);
+const aiCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1,0),new THREE.MeshLambertMaterial({color:0x8b5cf6,emissive:0x4c1d95,emissiveIntensity:.4}));
+aiCore.position.y=2.2; scene.add(aiCore);
+
+// Rings
+const rings=[];
+for(let i=0;i<3;i++){
+  const r=new THREE.Mesh(new THREE.TorusGeometry(1.7+i*.5,.04,8,64),new THREE.MeshBasicMaterial({color:0x8b5cf6,transparent:true,opacity:.15+i*.08}));
+  r.position.y=.5+i*.4; r.rotation.x=Math.PI/2; scene.add(r); rings.push(r);
+}
+
+// Ghost (placement preview)
+const ghost=new THREE.Mesh(new THREE.BoxGeometry(.9,.9,.9),new THREE.MeshLambertMaterial({color:0xef4444,transparent:true,opacity:.45}));
+ghost.visible=false; scene.add(ghost);
+
+// Invisible click plane
+const clickPlane=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshBasicMaterial({visible:false}));
+clickPlane.rotation.x=-Math.PI/2; clickPlane.position.y=.01; scene.add(clickPlane);
+
+const raycaster=new THREE.Raycaster();
+const mouse2=new THREE.Vector2();
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(W(),H());
+  camera.aspect=W()/H();
+  camera.updateProjectionMatrix();
+});
+
+// ── STATE ────────────────────────────────────────────────────────
+const STATE={phase:0,selType:'v',placed:[],enemies:[],waveIdx:0,waveStart:0,lastShot:0,barkT:null};
+
+// ── PALETTE SELECTION ────────────────────────────────────────────
+function sel(t){
+  if(!CFG.blocks[t]) return;
+  STATE.selType=t;
+  document.querySelectorAll('.pal-block').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('pb-'+t).classList.add('selected');
+  const geo={v:new THREE.BoxGeometry(.9,.9,.9),d:new THREE.OctahedronGeometry(.55),b:new THREE.IcosahedronGeometry(.5),s:new THREE.DodecahedronGeometry(.5)};
+  const col={v:0xef4444,d:0x3b82f6,b:0x8b5cf6,s:0xec4899};
+  ghost.geometry=geo[t];
+  ghost.material.color.setHex(col[t]);
+}
+sel('v');
+
+window.addEventListener('mousemove',e=>{
+  if(STATE.phase!==1) return;
+  mouse2.x=(e.clientX/W())*2-1;
+  mouse2.y=-(e.clientY/H())*2+1;
+  raycaster.setFromCamera(mouse2,camera);
+  const hits=raycaster.intersectObject(clickPlane);
+  if(!hits.length){ghost.visible=false;return;}
+  const p=hits[0].point;
+  const bx=Math.round(p.x/1.2)*1.2;
+  const bz=Math.round(p.z/1.2)*1.2;
+  // Don't allow placing inside core radius
+  if(Math.sqrt(bx*bx+bz*bz)<2.5){ghost.visible=false;return;}
+  ghost.position.set(bx,.5,bz);
+  ghost.visible=true;
+});
+
+window.addEventListener('click',e=>{
+  if(STATE.phase!==1||!ghost.visible) return;
+  const col={v:0xef4444,d:0x3b82f6,b:0x8b5cf6,s:0xec4899};
+  const geo={v:new THREE.BoxGeometry(.9,.9,.9),d:new THREE.OctahedronGeometry(.55),b:new THREE.IcosahedronGeometry(.5),s:new THREE.DodecahedronGeometry(.5)};
+  const m=new THREE.Mesh(geo[STATE.selType],new THREE.MeshLambertMaterial({color:col[STATE.selType],emissive:col[STATE.selType],emissiveIntensity:.25}));
+  m.position.copy(ghost.position);
+  scene.add(m);
+  STATE.placed.push({type:STATE.selType,mesh:m});
+
+  const counts={v:0,d:0,b:0,s:0};
+  STATE.placed.forEach(p=>counts[p.type]++);
+  if(counts.v>0&&counts.d>0) bark('Veri örnekleri hazır! Nöronları da ekleyip sistemi başlat!','🤖');
+  else bark('İyi başlangıç! Diğer blokları da yerleştirmeyi unutma.','🤖');
+});
+
+// ── GAME FLOW ────────────────────────────────────────────────────
+let currentTutStep = 0;
+let tutSequence = [];
+
+function startTutorial() {
+  tutSequence = TUTORIAL_DATA[MISSION] || TUTORIAL_DATA['c-g2-1'];
+  currentTutStep = 0;
+  showTutorialStep();
+}
+
+function showTutorialStep() {
+  const step = tutSequence[currentTutStep];
+  document.getElementById('tut-title').innerText = step.title;
+  document.getElementById('tut-text').innerText = step.text;
+  const btn = document.getElementById('tut-btn');
+  if (currentTutStep === tutSequence.length - 1) {
+    btn.innerText = "⚡ GÖREVE BAŞLA!";
+    btn.style.background = "linear-gradient(135deg,#f59e0b,#d97706)";
+  } else {
+    btn.innerText = "Devam Et ➔";
+    btn.style.background = "linear-gradient(135deg,#7c3aed,#8b5cf6)";
+  }
+}
+
+function nextTutorialStep() {
+  currentTutStep++;
+  if (currentTutStep >= tutSequence.length) {
+    startGame();
+  } else {
+    showTutorialStep();
+  }
+}
+
+function startGame(){
+  document.getElementById('tutorial-overlay').style.display='none';
+  document.getElementById('hud-top').style.display='flex';
+  document.getElementById('palette').style.display='flex';
+  document.getElementById('power-hud').style.display='flex';
+  document.getElementById('nex-bark').style.display='flex';
+  STATE.phase=1;
+  bark(CFG.bark,'🤖');
+}
+
+// Auto-start tutorial on load
+startTutorial();
+
+function activate(){
+  const counts={v:0,d:0,b:0,s:0};
+  STATE.placed.forEach(p=>counts[p.type]++);
+  if(counts.v===0){bark('⚠️ Virüs örneği bloku yerleştirmedin! Yapay Zeka ne arayacağını bilmiyor.','😨');return;}
+  STATE.phase=2;
+  STATE.waveStart=performance.now();
+  document.getElementById('palette').style.display='none';
+  document.getElementById('power-hud').style.display='none';
+  ghost.visible=false;
+  bark('Sistem aktif! Saldırı dalgası başlıyor...','😤');
+}
+
+function bark(msg,face='🤖'){
+  document.getElementById('bark-text').innerHTML=msg;
+  document.getElementById('nex-avatar').textContent=face;
+  const b=document.getElementById('bark-bubble');
+  b.classList.add('show');
+  clearTimeout(STATE.barkT);
+  STATE.barkT=setTimeout(()=>b.classList.remove('show'),5000);
+}
+
+function finishLevel(){
+  if (MISSION === 'c-g2-1') {
+      window.parent.location.href = '/ders/c-g2-2';
+  } else if (MISSION === 'c-g2-2') {
+      window.parent.location.href = '/ders/c-g2-3';
+  }
+}
+
+function closeGame(){
+  if(window.parent) window.parent.location.href = '/dersler';
+}
+
+// ── SPAWN ────────────────────────────────────────────────────────
+function spawnEnemy(t){
+  let geo,col,sz=1;
+  if(t==='v'){geo=new THREE.BoxGeometry(1,1,1);col=0xef4444;}
+  else if(t==='bb'){geo=new THREE.IcosahedronGeometry(1.6,0);col=0x3b82f6;sz=1.6;}// big blue
+  else{geo=new THREE.DodecahedronGeometry(1);col=0xef4444;}// hidden virus
+  const mat=new THREE.MeshLambertMaterial({color:col,emissive:col,emissiveIntensity:t==='bb'?.2:.15});
+  const mesh=new THREE.Mesh(geo,mat);
+  const angle=Math.random()*Math.PI*2;
+  const spawnR=13;
+  mesh.position.set(Math.cos(angle)*spawnR,sz*.5,Math.sin(angle)*spawnR);
+  scene.add(mesh);
+  STATE.enemies.push({t,mesh,dead:false});
+}
+
+// ── SHOOT ────────────────────────────────────────────────────────
+function tryShoot(e,now){
+  const counts={v:0,d:0,b:0,s:0};
+  STATE.placed.forEach(p=>counts[p.type]++);
+  let can=false;
+  if(e.t==='v') can=counts.v>0;
+  if(e.t==='bb') can=counts.b>=CFG.reqB;
+  if(e.t==='hv') can=counts.s>=CFG.reqS;
+  if(!can) return false;
+  if(now-STATE.lastShot<500) return false;
+  STATE.lastShot=now;
+  // Laser line
+  const pts=[new THREE.Vector3(0,2.2,0),e.mesh.position.clone()];
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x22c55e}));
+  scene.add(line);
+  setTimeout(()=>scene.remove(line),250);
+  return true;
+}
+
+// ── ANIMATE ─────────────────────────────────────────────────────
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();
+  aiCore.rotation.y+=.012;
+  rings.forEach((r,i)=>{r.rotation.z+=.004+i*.002;});
+
+  if(STATE.phase===2){
+    const elapsed=now-STATE.waveStart;
+    // Spawn
+    while(STATE.waveIdx<CFG.wave.length&&elapsed>CFG.wave[STATE.waveIdx].dl){
+      spawnEnemy(CFG.wave[STATE.waveIdx].t);
+      STATE.waveIdx++;
+    }
+    // Move enemies toward center
+    for(let i=STATE.enemies.length-1;i>=0;i--){
+      const e=STATE.enemies[i];
+      if(e.dead) continue;
+      // Directly move toward origin
+      const dir=new THREE.Vector3().copy(e.mesh.position).negate().normalize();
+      e.mesh.position.addScaledVector(dir,0.06);
+      e.mesh.rotation.y+=.04;
+
+      const dist=e.mesh.position.length();
+      // In range — try to shoot
+      if(dist<10&&tryShoot(e,now)){
+        e.dead=true;
+        scene.remove(e.mesh);
+        STATE.enemies.splice(i,1);
+        bark('🎯 İsabetli vuruş! AI filtreleri çalışıyor!','😄');
+        continue;
+      }
+      // Reached core
+      if(dist<2.0){
+        STATE.phase=3;
+        const failMsgs={v:'Normal bir virüs sızdı! Virüs örneği eksikti.',bb:'Devasa Mavi Truva Atı içeri girdi! Boyut Nöronu eksikti.',hv:'Şekil değiştiren virüs sızdı! Şekil Nöronu eksikti.'};
+        document.getElementById('fail-reason').textContent=failMsgs[e.t]||'Bir virüs içeri sızdı!';
+        document.getElementById('fail-screen').style.display='flex';
+        break;
+      }
+    }
+    // Check win
+    if(STATE.waveIdx>=CFG.wave.length&&STATE.enemies.filter(e=>!e.dead).length===0&&STATE.phase===2){
+      STATE.phase=3;
+      setTimeout(()=>{
+        document.getElementById('win-screen').style.display='flex';
+        
+        if (MISSION === 'c-g2-1' || MISSION === 'c-g2-2') {
+            document.getElementById('btn-next-mission').style.display = 'block';
+        } else {
+            document.getElementById('btn-finish-chapter').style.display = 'block';
+        }
+        
+        if(window.parent) window.parent.postMessage({type:'UNDERTALE_SECTION_CLEARED',xp:CFG.xp},'*');
+      },800);
+    }
+  }
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>

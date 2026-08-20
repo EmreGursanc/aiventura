@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEX-Core: Yapay Zeka Savaşları — Bölüm 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  position:fixed;inset:0;
+  width:100%;height:100%;overflow:hidden;
+  background:#030712;
+  font-family:'Nunito',sans-serif;
+}
+
+/* ══ TEMEL YAPI ══ */
+#app{width:100vw;height:100vh;position:relative;overflow:hidden;}
+#three-canvas{
+  position:absolute;inset:0;
+  width:100%!important;height:100%!important;
+  display:block;
+}
+
+/* ══ EĞİTİM (TUTORIAL) EKRANI ══ */
+#tutorial-overlay {
+  position: absolute; inset: 0; z-index: 400;
+  background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+}
+.tutorial-box {
+  background: #0f172a; border: 2px solid #10B981; border-radius: 16px;
+  width: 90%; max-width: 650px; padding: 30px;
+  display: flex; flex-direction: column; gap: 20px;
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.2);
+  transform: translateY(20px); opacity: 0;
+  animation: modalEnter 0.4s forwards ease-out;
+}
+@keyframes modalEnter { to { transform: translateY(0); opacity: 1; } }
+.tutorial-content { display: flex; gap: 24px; align-items: flex-start; }
+.tutorial-avatar { font-size: 80px; animation: nexFloat 3s ease-in-out infinite; background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 20px; border: 2px solid rgba(16, 185, 129, 0.3); }
+.tutorial-text-area { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.tutorial-title { font-family: 'Press Start 2P', monospace; font-size: 14px; color: #34d399; line-height: 1.5; }
+.tutorial-text { font-size: 16px; font-weight: 800; color: #e2e8f0; line-height: 1.6; }
+.tutorial-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+.btn-primary{
+  padding:14px 36px;
+  background:linear-gradient(135deg,#10B981,#059669);
+  color:#fff;font-family:'Press Start 2P',monospace;font-size:11px;
+  border:none;border-radius:10px;cursor:pointer;
+  box-shadow:0 0 28px rgba(16,185,129,0.5);
+  transition:transform .15s,box-shadow .15s;
+  margin-top:4px;
+}
+.btn-primary:hover{transform:scale(1.06);box-shadow:0 0 40px rgba(16,185,129,0.7);}
+
+/* ══ OYUN UI - ÜST BAR ══ */
+#hud-top{
+  position:absolute;top:0;left:0;right:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;
+  background:rgba(3,7,18,0.9);
+  border-bottom:1px solid rgba(16,185,129,0.2);
+  backdrop-filter:blur(12px);
+  z-index:50;pointer-events:none;
+}
+#hud-top .chapter{
+  font-family:'Press Start 2P',monospace;font-size:9px;
+  color:#34d399;background:rgba(16,185,129,0.15);
+  padding:5px 12px;border-radius:4px;border:1px solid rgba(16,185,129,0.3);
+}
+#hud-top .mission{
+  font-size:13px;font-weight:900;color:#e2e8f0;
+  text-align:center;flex:1;padding:0 16px;
+}
+.step-dots{display:flex;gap:6px;align-items:center;}
+.sdot{width:10px;height:10px;border-radius:50%;background:#1e293b;border:2px solid #334155;transition:all .4s;}
+.sdot.done{background:#10B981;border-color:#10B981;box-shadow:0 0 6px #10B981;}
+.sdot.active{background:#3b82f6;border-color:#3b82f6;box-shadow:0 0 10px #3b82f6;animation:pulseDot 1s infinite;}
+@keyframes pulseDot{0%,100%{transform:scale(1);}50%{transform:scale(1.5);}}
+
+/* ══ BLOK PALETİ (Sol) ══ */
+#palette{
+  position:absolute;left:0;top:52px;bottom:0;
+  width:140px;
+  background:rgba(3,7,18,0.95);
+  border-right:1px solid rgba(16,185,129,0.15);
+  display:flex;flex-direction:column;
+  z-index:50;
+}
+.pal-header{
+  padding:10px 8px 6px;
+  font-family:'Press Start 2P',monospace;font-size:7px;
+  color:#475569;text-align:center;
+  border-bottom:1px solid #0f172a;
+  line-height:1.6;
+}
+.pal-block{
+  margin:8px;padding:10px 6px;
+  border-radius:10px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  border:2px solid transparent;
+  transition:all .2s;position:relative;
+  user-select:none;
+}
+.pal-block.locked{opacity:0.3;pointer-events:none;cursor:default;}
+.pal-block:not(.locked):hover{transform:translateY(-2px);}
+.pal-block.selected{box-shadow:0 0 16px rgba(255,255,255,0.2);}
+.pal-block .be{font-size:30px;line-height:1;}
+.pal-block .bn{font-size:10px;font-weight:900;text-align:center;line-height:1.3;}
+.pal-block .bs{font-size:8px;opacity:.7;text-align:center;line-height:1.3;}
+.lock-overlay{position:absolute;top:4px;right:4px;font-size:11px;}
+
+.pb-dusmanornegi{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);}
+.pb-dusmanornegi .bn{color:#f87171;}
+.pb-dusmanornegi.selected{border-color:#ef4444;background:rgba(239,68,68,0.22);box-shadow:0 0 14px rgba(239,68,68,0.35);}
+
+.pb-dostornegi{background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.3);}
+.pb-dostornegi .bn{color:#60a5fa;}
+.pb-dostornegi.selected{border-color:#3b82f6;background:rgba(59,130,246,0.22);box-shadow:0 0 14px rgba(59,130,246,0.35);}
+
+.pb-noron{background:rgba(139,92,246,0.08);border-color:rgba(139,92,246,0.2);}
+.pb-noron .bn{color:#a78bfa;}
+.pb-noron.selected{border-color:#8b5cf6;}
+
+/* ══ NEX BARK (Kısa Tepki Balonu) ══ */
+#nex-bark{
+  position:absolute;bottom:90px;right:16px;
+  z-index:200;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;
+  pointer-events:none;
+}
+#bark-bubble{
+  max-width:240px;
+  background:#0f172a;
+  border:2px solid #10B981;
+  border-radius:14px 14px 4px 14px;
+  padding:10px 14px;
+  opacity:0;transform:translateY(10px);
+  transition:opacity .25s,transform .25s;
+  box-shadow:0 4px 20px rgba(16,185,129,0.25);
+}
+#bark-bubble.show{opacity:1;transform:translateY(0);}
+#bark-bubble.mood-happy{border-color:#22c55e;box-shadow:0 4px 20px rgba(34,197,94,0.25);}
+#bark-bubble.mood-danger{border-color:#ef4444;box-shadow:0 4px 20px rgba(239,68,68,0.3);animation:bubbleShake .3s;}
+#bark-bubble.mood-warn{border-color:#f59e0b;box-shadow:0 4px 20px rgba(245,158,11,0.3);}
+#bark-text{font-size:13px;font-weight:800;color:#e2e8f0;line-height:1.5;}
+#nex-face{font-size:44px;text-align:right;animation:nexFloat 3s ease-in-out infinite;pointer-events:none;}
+
+/* ══ GÜÇ GÖSTERGESİ ══ */
+#power-hud{
+  position:absolute;bottom:0;left:0;right:0;
+  display:flex;align-items:center;gap:12px;
+  padding:10px 150px 10px 150px;
+  background:rgba(3,7,18,0.92);
+  border-top:1px solid rgba(16,185,129,0.15);
+  backdrop-filter:blur(10px);
+  z-index:50;
+}
+#power-label{font-family:'Press Start 2P',monospace;font-size:8px;color:#475569;white-space:nowrap;}
+
+#accuracy-tag{
+  font-family:'Press Start 2P',monospace;font-size:8px;white-space:nowrap;
+  color:#ef4444;transition:color .5s;
+}
+#accuracy-tag.medium{color:#f59e0b;}
+#accuracy-tag.high{color:#10B981;}
+#power-bar-wrap{
+  flex:1;height:18px;background:#0f172a;
+  border-radius:9px;border:1px solid #1e293b;
+  overflow:hidden;position:relative;
+}
+#power-bar-fill{
+  height:100%;width:0%;
+  border-radius:9px;
+  background:linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa);
+  transition:width .5s ease, background .5s;
+  box-shadow:0 0 10px rgba(59,130,246,0.5);
+  position:relative;
+}
+#power-bar-fill::after{
+  content:'';position:absolute;top:2px;left:5px;right:5px;height:5px;
+  background:rgba(255,255,255,0.3);border-radius:3px;
+}
+
+#btn-activate{
+  padding:10px 18px;
+  background:linear-gradient(135deg,#10B981,#059669);
+  color:#fff;font-family:'Press Start 2P',monospace;font-size:9px;
+  border:none;border-radius:8px;cursor:pointer;
+  box-shadow:0 0 18px rgba(16,185,129,0.4);
+  transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+#btn-activate:hover{transform:scale(1.05);box-shadow:0 0 28px rgba(16,185,129,0.6);}
+#btn-activate:disabled{background:#1e293b;color:#475569;cursor:not-allowed;box-shadow:none;transform:none;}
+
+/* ══ DALGA SALDIRISI OVERLAY ══ */
+#wave-overlay{
+  position:absolute;inset:0;z-index:150;
+  display:none;flex-direction:column;align-items:center;justify-content:flex-start;
+  pointer-events:none;padding-top:80px;
+}
+#wave-banner{
+  background:rgba(239,68,68,0.15);border:2px solid #ef4444;
+  border-radius:10px;padding:10px 24px;
+  font-family:'Press Start 2P',monospace;font-size:11px;color:#f87171;
+  box-shadow:0 0 24px rgba(239,68,68,0.3);
+  animation:wavePulse 0.5s infinite alternate;
+}
+@keyframes wavePulse{from{opacity:.7;}to{opacity:1;}}
+
+/* ══ ZAFER VE HATA EKRANLARI ══ */
+.overlay-screen{
+  position:absolute;inset:0;z-index:300;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;text-align:center;padding:24px;
+}
+#victory-screen{background:radial-gradient(ellipse at center,#071a0e 0%,#030712 100%);}
+#failure-screen{background:radial-gradient(ellipse at center,#2a0808 0%,#030712 100%);}
+
+#victory-screen h1{font-family:'Press Start 2P',monospace;font-size:16px;color:#10B981;animation:victoryGlow 1.5s infinite alternate;}
+#failure-screen h1{font-family:'Press Start 2P',monospace;font-size:16px;color:#ef4444;animation:failPulse 1s infinite alternate;}
+
+@keyframes victoryGlow{from{text-shadow:0 0 12px #10B981;}to{text-shadow:0 0 35px #10B981,0 0 60px #34d399;}}
+@keyframes failPulse{from{text-shadow:0 0 10px #ef4444;}to{text-shadow:0 0 25px #ef4444,0 0 40px #ff0000;}}
+
+.result-card{
+  background:rgba(255,255,255,0.03);border:2px solid;border-radius:16px;
+  padding:20px 28px;max-width:440px;backdrop-filter:blur(8px);
+}
+#victory-screen .result-card{border-color:#10B981;}
+#failure-screen .result-card{border-color:#ef4444;}
+.result-card p{font-size:14px;font-weight:800;color:#d1fae5;line-height:1.8;}
+.result-card .ai-lesson{
+  margin-top:12px;padding:10px 14px;background:rgba(16,185,129,0.08);
+  border-radius:8px;border-left:3px solid #10B981;
+  font-size:12px;color:#86efac;line-height:1.6;text-align:left;
+}
+.xp-badge{
+  background:linear-gradient(135deg,#ffd700,#f97316);
+  color:#000;font-family:'Press Start 2P',monospace;
+  font-size:14px;padding:12px 28px;border-radius:50px;
+  box-shadow:0 0 24px rgba(255,215,0,0.5);
+}
+
+/* ══ ANIMASYONLAR ══ */
+@keyframes nexFloat{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-9px) rotate(3deg);}}
+@keyframes glitchShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+@keyframes bubbleShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+@keyframes screenShake{
+  0%,100%{transform:translate(0,0) rotate(0deg);}
+  20%{transform:translate(-3px,2px) rotate(-1deg);}
+  40%{transform:translate(3px,-2px) rotate(1deg);}
+  60%{transform:translate(-3px,-2px) rotate(-1deg);}
+  80%{transform:translate(3px,2px) rotate(1deg);}
+}
+.shake { animation: screenShake 0.3s ease-in-out; }
+
+/* ══ PARTİKÜL ══ */
+.vp{position:absolute;border-radius:50%;pointer-events:none;animation:vfly 1.2s ease-out forwards;}
+@keyframes vfly{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0);}}
+
+#glitch-alert{
+  position:absolute;top:60px;left:50%;transform:translateX(-50%);
+  z-index:100;pointer-events:none;
+  font-family:'Press Start 2P',monospace;font-size:9px;color:#f87171;
+  background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);
+  padding:6px 14px;border-radius:6px;
+  opacity:0;transition:opacity .3s;
+}
+#glitch-alert.show{opacity:1;}
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+<div id="app">
+<canvas id="three-canvas"></canvas>
+
+<div id="hud-top" style="display:none;">
+  <div class="chapter">BÖLÜM 1</div>
+  <div class="mission" id="mission-text">🎯 Yapay Zeka'yı eğit!</div>
+  <div class="step-dots" id="step-dots-container">
+  </div>
+</div>
+
+<div id="palette" style="display:none;">
+  <div class="pal-header">🎓 EĞİTİM<br/>BLOKLARI</div>
+
+  <div class="pal-block pb-dusmanornegi locked" id="pb-dusmanornegi" onclick="selectBlock('dusmanornegi')">
+    <span class="lock-overlay" style="display:none;">🔒</span>
+    <span class="be">🦠</span>
+    <span class="bn">Virüs<br/>Örneği</span>
+    <span class="bs">"Bu bir virüs!"</span>
+  </div>
+
+  <div class="pal-block pb-dostornegi locked" id="pb-dostornegi" onclick="selectBlock('dostornegi')">
+    <span class="lock-overlay" style="display:none;">🔒</span>
+    <span class="be">💾</span>
+    <span class="bn">Temiz<br/>Veri</span>
+    <span class="bs">"Bu temiz dosya!"</span>
+  </div>
+
+  <div class="pal-block pb-noron locked" id="pb-noron" onclick="selectBlock('noron')">
+    <span class="lock-overlay" style="display:none;">🔒</span>
+    <span class="be">🧠</span>
+    <span class="bn">Nöron</span>
+    <span class="bs">Bağlantı</span>
+  </div>
+</div>
+
+<div id="power-hud" style="display:none;">
+  <span id="power-label" style="display:none;">🎯 İSABET ORANI</span>
+  <div id="power-bar-wrap" style="display:none;">
+    <div id="power-bar-fill"></div>
+  </div>
+  <span id="accuracy-tag" style="display:none;">%0</span>
+  <div style="flex:1;"></div>
+  <button id="btn-activate" onclick="activateSystem()" disabled>▶ EĞİTİMİ TAMAMLA!</button>
+</div>
+
+<div id="nex-bark" style="display:none;">
+  <div id="bark-bubble">
+    <div id="bark-text">Merhaba!</div>
+  </div>
+  <div id="nex-face">🤖</div>
+</div>
+
+<div id="glitch-alert">⚠ GLITCH SİSTEME SIZIYOR!</div>
+<div id="wave-overlay">
+  <div id="wave-banner" id="wave-banner-text">⚡ ROGUE AI DALGASI GELİYOR! ⚡</div>
+</div>
+
+<div id="tutorial-overlay">
+  <div class="tutorial-box">
+    <div class="tutorial-content">
+      <div class="tutorial-avatar">🤖</div>
+      <div class="tutorial-text-area">
+        <div class="tutorial-title" id="tut-title">YÜKLENİYOR...</div>
+        <div class="tutorial-text" id="tut-text">...</div>
+      </div>
+    </div>
+    <div class="tutorial-actions">
+      <button class="btn-primary" id="tut-btn" onclick="nextTutorialStep()">Devam Et ➔</button>
+    </div>
+  </div>
+</div>
+
+<div id="failure-screen" class="overlay-screen">
+  <div style="font-size:60px;animation:glitchShake 0.5s infinite;">💥</div>
+  <h1 id="fail-title">FACİA! KENDİ DOSYAMIZI SİLDİK!</h1>
+  <div class="result-card">
+    <p id="fail-desc">Yapay Zeka mavi renkli kendi sistem dosyamızı sildi!</p>
+    <div class="ai-lesson fail" id="fail-lesson">
+      💡 <strong>ÖNYARGI HATASI (Bias):</strong> Yapay Zeka'ya sadece Virüsleri öğrettin. Temiz verileri bilmediği için, hareket eden her şeyi virüs sandı! Buna yapay zekada "Ön Yargı" denir.
+    </div>
+  </div>
+  <button class="btn-primary" onclick="retryLevel()" style="background:linear-gradient(135deg,#f59e0b,#ef4444);">↺ TEKRAR DENE</button>
+</div>
+
+<div id="victory-screen" class="overlay-screen">
+  <div style="font-size:60px;animation:nexFloat 2s infinite;">🤖</div>
+  <h1>🎉 GÖREV TAMAMLANDI!</h1>
+  <div class="result-card">
+    <p>Harika iş Mimar!<br/>Yapay Zeka doğru çalışıyor.</p>
+    <div class="ai-lesson">
+      💡 <strong>Gerçek AI şunları öğrendi:</strong> Makine Öğrenmesi tam olarak budur — bilgisayara kural yazmak yerine, <em>örnekler göstererek</em> öğretmek!
+    </div>
+  </div>
+  <div class="xp-badge" id="xp-text">+100 XP KAZANILDI! 🌟</div>
+  <button id="btn-next-mission" class="btn-primary" style="display:none; margin-top:20px; font-size:14px; padding:16px 40px;">Sonraki Göreve Geç ➔</button>
+  <button id="btn-finish-chapter" class="btn-primary" style="display:none; margin-top:20px; font-size:14px; padding:16px 40px;" onclick="if(window.parent) window.parent.location.href='/dersler'">Haritaya Dön ➔</button>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const MISSION = new URLSearchParams(window.location.search).get('mission') || 'c-g1-1';
+
+const MISSION_CONFIG = {
+  'c-g1-1': {
+    unlockedBlocks: ['dusmanornegi'],
+    maxDusman: 3,
+    maxDost: 0,
+    wavePattern: ['enemy', 'enemy', 'enemy', 'enemy', 'enemy', 'enemy'],
+    waveSpeed: 0.04,
+    slots: 3,
+    xp: 100,
+    introText: "Yapay Zeka tamamen boş!<br/>Sadece virüsleri öğret!",
+    failurePossible: false,
+    showAccuracy: false,
+    missionTitle: "Virüsü Tanı",
+    biasTrap: false
+  },
+  'c-g1-2': {
+    unlockedBlocks: ['dusmanornegi', 'dostornegi'],
+    maxDusman: 2,
+    maxDost: 2,
+    wavePattern: ['enemy', 'friend', 'enemy', 'friend', 'enemy', 'friend', 'enemy'],
+    waveSpeed: 0.06,
+    slots: 4,
+    xp: 120,
+    introText: "GLITCH artık mavi temiz verileri de gönderiyor!<br/>Dikkat et, yapay zekaya ikisini de öğret!",
+    failurePossible: true,
+    showAccuracy: true,
+    missionTitle: "Ön Yargı Hatası",
+    biasTrap: true
+  },
+  'c-g1-3': {
+    unlockedBlocks: ['dusmanornegi', 'dostornegi', 'noron'],
+    maxDusman: 3,
+    maxDost: 2,
+    wavePattern: ['enemy', 'enemy', 'friend', 'enemy', 'friend', 'enemy', 'friend', 'enemy', 'enemy', 'friend', 'enemy', 'enemy', 'friend'],
+    waveSpeed: 0.08,
+    slots: 6,
+    xp: 150,
+    introText: "Büyük Veri dönemi başladı!<br/>Daha fazla örnek = Daha akıllı AI!",
+    failurePossible: true,
+    showAccuracy: true,
+    missionTitle: "Karmaşık Veri Akışı",
+    biasTrap: true,
+    accuracyCheck: true
+  }
+};
+const CFG = MISSION_CONFIG[MISSION] || MISSION_CONFIG['c-g1-1'];
+
+const TUTORIAL_DATA = {
+  'c-g1-1': [
+    { title: 'NEX-CORE DEVREDE', text: 'Merhaba Mimar! Ben NEX. Yeni inşa edilen NEXUS Kalesinin yapay zeka çekirdeğiyim. Kuleyi savunmak benim görevim, ancak şu an zihnim bomboş. Hiçbir veri yok!' },
+    { title: 'NASIL OYNANIR?', text: 'Bir yapay zeka bilgisayarlarda kural yazılarak değil, "veri (örnek)" gösterilerek eğitilir. Senin görevin, sol taraftaki veri bloklarını kulemin etrafındaki yuvalara yerleştirerek bana dünyayı tanıtmak.' },
+    { title: 'VİRÜS VERİSİ (KIRMIZI)', text: 'En büyük düşmanımız GLITCH, sistemlerimizi çökertmek için kırmızı Virüsler gönderiyor. Onları tanıyıp vurabilmem için bana Kırmızı Virüs Bloklarını öğretmen (yuvalara yerleştirmen) lazım.' },
+    { title: 'TEMİZ VERİ (MAVİ)', text: 'Aynı zamanda kendi sistemimizin Mavi renkli Temiz Verileri de geçiş yapacak. Onlar bizim dostumuz! İlerleyen görevlerde bana Mavi blokları da öğreteceksin ki onları yanlışlıkla vurmayayım.' },
+    { title: 'İLK GÖREV: VİRÜSLERİ TANI', text: 'Hazırsan başlayalım! Oyuna girince sol menüdeki 🦠 (Virüs Örneği) bloğuna tıkla ve yerdeki ışıklı yuvalara yerleştir. Ben yeterince öğrenince seni koruyacağım!' }
+  ],
+  'c-g1-2': [
+    { title: 'DÜŞMANI TANIDIM!', text: 'Harika, kırmızı virüsleri öğrendim! Ama bekle... Gözlem sensörlerim Mavi gemilerin de geldiğini söylüyor!' },
+    { title: 'TEMİZ VERİ NEDİR?', text: 'Mavi gemiler bizim dostumuz (Temiz Veri). Eğer bana sadece virüsleri öğretirsen, ön yargılı (biased) olurum ve gördüğüm her gemiyi virüs sanıp vururum! Buna "Ön Yargı Hatası" denir.' },
+    { title: 'ÇÖZÜM', text: 'Sisteme hem kırmızı (Virüs) hem de mavi (Temiz Veri) bloklarını girmelisin. Böylece dostu düşmandan ayırabilirim.' }
+  ],
+  'c-g1-3': [
+    { title: 'BÜYÜK VERİ AKIŞI', text: 'Çok fazla veri akışı var! Düşman ve dost gemiler birbirine karıştı. Daha hızlı ve akıllı düşünmeliyim.' },
+    { title: 'NÖRON NEDİR?', text: 'Bunun için Nöronlara ihtiyacım var! Nöron, yapay zekanın beynindeki hesaplama hücreleridir. Bilgisayarlarda matematiksel işlemler yaparak veriyi işlerler.' },
+    { title: 'AĞI GÜÇLENDİR', text: 'Nöronları üst üste değil, tıpkı diğer veriler gibi kulemin etrafındaki boş ışıklı yuvalara yerleştirmelisin. Paletten Nöron (Beyin) bloğunu boş yuvalara ekleyerek benim öğrenme kapasitemi artır. Haydi bu dalgayı atlatalım!' }
+  ]
+};
+
+const STATE = {
+  started: false,
+  phase: 0,
+  selectedType: null,
+  placedBlocks: {},
+  dusmanCount: 0,
+  dostCount: 0,
+  noronCount: 0,
+  waveActive: false,
+  failed: false,
+  barkTimer: null,
+  misses: 0,
+  hits: 0,
+  totalBotsSpawned: 0,
+};
+
+// Removed static intro text loading
+document.getElementById('mission-text').textContent = `🎯 ${CFG.missionTitle}`;
+if(CFG.showAccuracy){
+  document.getElementById('power-label').style.display='inline';
+  document.getElementById('power-bar-wrap').style.display='block';
+  document.getElementById('accuracy-tag').style.display='inline';
+}
+
+const sdc = document.getElementById('step-dots-container');
+for(let i=0; i<CFG.slots; i++){
+  const d = document.createElement('div');
+  d.className = 'sdot';
+  if(i===0) d.classList.add('active');
+  d.id = 'sd'+i;
+  sdc.appendChild(d);
+}
+
+const canvas = document.getElementById('three-canvas');
+const W=()=>canvas.parentElement.clientWidth||window.innerWidth;
+const H=()=>canvas.parentElement.clientHeight||window.innerHeight;
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(W(), H());
+renderer.setClearColor(0x030712,1);
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x030712, 20, 38);
+
+const camera = new THREE.PerspectiveCamera(55,W()/H(),0.1,80);
+let camTheta=0.55, camPhi=0.72, camRadius=15;
+function updateCam(){
+  camera.position.set(
+    0 + camRadius*Math.sin(camPhi)*Math.sin(camTheta),
+    camRadius*Math.cos(camPhi),
+    0 + camRadius*Math.sin(camPhi)*Math.cos(camTheta)
+  );
+  camera.lookAt(0,1.5,0);
+}
+updateCam();
+
+scene.add(new THREE.AmbientLight(0x0f172a, 3));
+const sun = new THREE.DirectionalLight(0xffffff,2);
+sun.position.set(8,14,6);
+sun.castShadow=true;
+scene.add(sun);
+const blueLight = new THREE.PointLight(0x10B981,2.5,16);
+blueLight.position.set(0,4,0);
+scene.add(blueLight);
+
+const ground = new THREE.Mesh(
+  new THREE.BoxGeometry(22,0.3,22),
+  new THREE.MeshLambertMaterial({color:0x0a0f1e})
+);
+ground.position.y=-0.15;
+ground.receiveShadow=true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(22,22,0x1e293b,0x0f172a);
+grid.position.y=0.01;
+scene.add(grid);
+
+const towerBase = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.5, 1.8, 0.3, 32),
+  new THREE.MeshLambertMaterial({color:0x1e293b})
+);
+towerBase.castShadow=true;
+scene.add(towerBase);
+
+const towerHead = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(1.1,0),
+  new THREE.MeshLambertMaterial({color:0x10B981, flatShading: true, transparent:true, opacity:0.9})
+);
+towerHead.position.y=2.2;
+scene.add(towerHead);
+
+const rings = [];
+for(let i=0;i<3;i++){
+  const rMesh = new THREE.Mesh(
+    new THREE.TorusGeometry(0.85+i*0.3, 0.05, 8, 32),
+    new THREE.MeshBasicMaterial({color:0x1e293b, transparent:true, opacity:0})
+  );
+  rMesh.position.y=1+i*0.6;
+  rMesh.rotation.x=Math.PI/2;
+  scene.add(rMesh);
+  rings.push(rMesh);
+}
+
+const DATA_SLOTS = [];
+for(let i=0;i<CFG.slots;i++){
+  const angle=(i/CFG.slots)*Math.PI*2;
+  const slotX=Math.sin(angle)*3.8;
+  const slotZ=Math.cos(angle)*3.8;
+
+  const slotGlow = new THREE.PointLight(0x1e40af,0.5,2.2);
+  slotGlow.position.set(slotX,0.3,slotZ);
+  scene.add(slotGlow);
+
+  const guideRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.45,0.04,8,24),
+    new THREE.MeshBasicMaterial({color:0x1e3a5f,transparent:true,opacity:0.8})
+  );
+  guideRing.rotation.x=Math.PI/2;
+  guideRing.position.set(slotX,0.05,slotZ);
+  scene.add(guideRing);
+
+  DATA_SLOTS.push({x:slotX, z:slotZ, filled:false, glow:slotGlow, ring:guideRing});
+}
+
+const invisGround = new THREE.Mesh(
+  new THREE.PlaneGeometry(100,100),
+  new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})
+);
+invisGround.rotation.x=-Math.PI/2;
+invisGround.position.y=0.02;
+scene.add(invisGround);
+
+const ghostMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(0.88,0.88,0.88),
+  new THREE.MeshLambertMaterial({color:0xeab308,transparent:true,opacity:0.4})
+);
+ghostMesh.visible=false;
+scene.add(ghostMesh);
+
+const GLITCH_BOTS = [];
+const SHATTERS = [];
+const LASERS = [];
+
+const BDEFS = {
+  dusmanornegi: {color:0xef4444, emissive:0x7f1d1d, emoji:'🦠', name:'Virüs Örneği'},
+  dostornegi:   {color:0x3b82f6, emissive:0x1e3a5f, emoji:'💾', name:'Temiz Veri'},
+  noron:        {color:0x8b5cf6, emissive:0x3b0764, emoji:'🧠', name:'Nöron'}
+};
+
+let isDrag=false, lastMX=0, lastMY=0;
+canvas.addEventListener('mousedown',e=>{if(e.button===1||e.ctrlKey){isDrag=true;lastMX=e.clientX;lastMY=e.clientY;}});
+window.addEventListener('mouseup',()=>isDrag=false);
+window.addEventListener('mousemove',e=>{
+  if(isDrag){
+    camTheta-=(e.clientX-lastMX)*.005;
+    camPhi=Math.max(0.3,Math.min(1.3,camPhi+(e.clientY-lastMY)*.005));
+    lastMX=e.clientX;lastMY=e.clientY;
+    updateCam();
+  }
+});
+canvas.addEventListener('wheel',e=>{
+  camRadius=Math.max(7,Math.min(22,camRadius+e.deltaY*.012));
+  updateCam();e.preventDefault();
+},{passive:false});
+
+const raycaster=new THREE.Raycaster();
+const pointer=new THREE.Vector2();
+let hoverPos=null;
+
+function getRayHit(e){
+  const r=canvas.getBoundingClientRect();
+  pointer.x=((e.clientX-r.left)/r.width)*2-1;
+  pointer.y=-((e.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+
+  const blockMeshes=Object.values(STATE.placedBlocks).map(b=>b.mesh);
+  const bHits=raycaster.intersectObjects(blockMeshes);
+  if(bHits.length>0){
+    const hit=bHits[0];
+    const np=hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));
+    const bp=hit.object.position;
+    const bx=Math.floor(bp.x-0.5)+Math.round(np.x);
+    const by=Math.round(bp.y-0.5)+Math.round(np.y);
+    const bz=Math.floor(bp.z-0.5)+Math.round(np.z);
+    return{onBlock:true,mesh:hit.object,x:bx,y:by,z:bz};
+  }
+
+  const gHits=raycaster.intersectObject(invisGround);
+  if(gHits.length>0){
+    const p=gHits[0].point;
+    return{onBlock:false,x:Math.floor(p.x),y:0,z:Math.floor(p.z)};
+  }
+  return null;
+}
+
+canvas.addEventListener('mousemove',e=>{
+  if(!STATE.started||isDrag||STATE.phase!==1 || !STATE.selectedType)return;
+  const hit=getRayHit(e);
+  if(hit){
+    hoverPos=hit;
+    ghostMesh.position.set(hit.x+0.5, hit.y+0.5, hit.z+0.5);
+    const def=BDEFS[STATE.selectedType];
+    ghostMesh.material.color.set(def.color);
+    ghostMesh.visible=true;
+  }else{
+    ghostMesh.visible=false;hoverPos=null;
+  }
+});
+
+canvas.addEventListener('click',e=>{
+  if(!STATE.started||STATE.phase!==1||!hoverPos||isDrag||!STATE.selectedType)return;
+  const currentTotal = STATE.dusmanCount + STATE.dostCount + STATE.noronCount;
+  if(currentTotal >= CFG.slots && !hoverPos.onBlock) {
+    nexBark('Slotlar doldu!', 'warn');
+    return;
+  }
+  placeBlock(hoverPos.x,hoverPos.y,hoverPos.z);
+});
+
+canvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(!STATE.started||STATE.phase!==1||!hoverPos||!hoverPos.onBlock)return;
+  removeBlock(hoverPos.mesh);
+});
+
+function placeBlock(x,y,z){
+  const key=`${x},${y},${z}`;
+  if(STATE.placedBlocks[key])return;
+  const def=BDEFS[STATE.selectedType];
+  if(!def)return;
+
+  const geo=new THREE.BoxGeometry(0.88,0.88,0.88);
+  const mat=new THREE.MeshLambertMaterial({
+    color:def.color,
+    emissive: new THREE.Color(def.emissive||0x000000),
+    emissiveIntensity: 0.3
+  });
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.25})
+  ));
+  mesh.position.set(x+0.5, y+0.5, z+0.5);
+  mesh.castShadow=true;
+  mesh.userData={type:STATE.selectedType};
+  scene.add(mesh);
+  STATE.placedBlocks[key]={mesh,type:STATE.selectedType};
+
+  mesh.scale.set(0.01,0.01,0.01);
+  animPop(mesh);
+
+  onBlockChanged();
+}
+
+function removeBlock(mesh){
+  const p=mesh.position;
+  const key=`${Math.floor(p.x-0.5)},${Math.floor(p.y-0.5)},${Math.floor(p.z-0.5)}`;
+  if(!STATE.placedBlocks[key])return;
+  scene.remove(mesh);
+  mesh.geometry.dispose();
+  mesh.material.dispose();
+  delete STATE.placedBlocks[key];
+  onBlockChanged();
+}
+
+function animPop(mesh){
+  const t0=performance.now();
+  function tick(now){
+    const p=Math.min((now-t0)/200,1);
+    const s=p<.7?p/.7:1+(1-p)/.3*.12;
+    mesh.scale.set(s,s,s);
+    if(p<1)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function countType(type){
+  return Object.values(STATE.placedBlocks).filter(b=>b.type===type).length;
+}
+
+function onBlockChanged(){
+  STATE.dusmanCount = countType('dusmanornegi');
+  STATE.dostCount   = countType('dostornegi');
+  STATE.noronCount  = countType('noron');
+  const totalCount = STATE.dusmanCount + STATE.dostCount + STATE.noronCount;
+  
+  updateDataSlots(totalCount);
+  updateTowerVisual(STATE.dusmanCount, STATE.dostCount);
+  updateAccuracyBar(STATE.dusmanCount, STATE.dostCount, STATE.noronCount);
+  
+  for(let i=0; i<CFG.slots; i++){
+    const dot = document.getElementById('sd'+i);
+    if(i < totalCount){
+      dot.className = 'sdot done';
+    } else if (i === totalCount) {
+      dot.className = 'sdot active';
+    } else {
+      dot.className = 'sdot';
+    }
+  }
+
+  const btn = document.getElementById('btn-activate');
+  const hasMinDusman = STATE.dusmanCount >= CFG.maxDusman;
+  const hasMinDost = STATE.dostCount >= CFG.maxDost;
+  
+  if (CFG.biasTrap) {
+     if (STATE.dusmanCount > 0 && STATE.dostCount === 0) {
+        btn.disabled = false;
+        btn.textContent = '▶ EKSİK BİLGİYLE BAŞLAT!';
+        btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+        nexBark('⚠ Temiz verileri öğretmedin!', 'warn');
+     } else if (hasMinDusman && hasMinDost) {
+        btn.disabled = false;
+        btn.textContent = '▶ EĞİTİMİ TAMAMLA!';
+        btn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
+        nexBark('Harika! Hem iyi hem kötüyü öğrendi!', 'happy');
+     } else {
+        btn.disabled = true;
+        btn.textContent = '▶ DAHA FAZLA ÖĞRET';
+     }
+  } else {
+     if (hasMinDusman) {
+        btn.disabled = false;
+        btn.textContent = '▶ EĞİTİMİ TAMAMLA!';
+        btn.style.background = 'linear-gradient(135deg,#10B981,#059669)';
+        nexBark('Yeterince virüs örneği ekledin!', 'happy');
+     } else {
+        btn.disabled = true;
+     }
+  }
+}
+
+function updateAccuracyBar(dusman, dost, noron){
+  if(!CFG.showAccuracy) return;
+  const total = CFG.maxDusman + CFG.maxDost;
+  let score = 0;
+  if(dusman > 0) score += (Math.min(dusman, CFG.maxDusman) / CFG.maxDusman) * 50;
+  if(dost > 0) score += (Math.min(dost, CFG.maxDost) / CFG.maxDost) * 50;
+  if(CFG.accuracyCheck && score < 100 && noron > 0) {
+      score += noron * 10;
+  }
+  score = Math.min(100, Math.round(score));
+  
+  const fill = document.getElementById('power-bar-fill');
+  const tag  = document.getElementById('accuracy-tag');
+  fill.style.width = score + '%';
+
+  if(score < 40){
+    fill.style.background='linear-gradient(90deg,#7f1d1d,#ef4444)';
+    fill.style.boxShadow='0 0 8px rgba(239,68,68,0.4)';
+    tag.textContent='%' + score + ' — Kör!';
+    tag.className='';
+  } else if(score < 80){
+    fill.style.background='linear-gradient(90deg,#ef4444,#f59e0b,#eab308)';
+    fill.style.boxShadow='0 0 12px rgba(245,158,11,0.5)';
+    tag.textContent='%' + score + ' — Öğreniyor...';
+    tag.className='medium';
+  } else {
+    fill.style.background='linear-gradient(90deg,#eab308,#10B981,#059669)';
+    fill.style.boxShadow='0 0 20px rgba(16,185,129,0.6)';
+    tag.textContent='%' + score + ' — Hazır!';
+    tag.className='high';
+  }
+}
+
+function updateDataSlots(cnt){
+  DATA_SLOTS.forEach((slot,i)=>{
+    const lit = i < cnt;
+    slot.glow.color.set(lit ? 0x60a5fa : 0x1e40af);
+    slot.glow.intensity = lit ? 1.8 : 0.4;
+    slot.ring.material.color.set(lit ? 0x3b82f6 : 0x1e3a5f);
+    slot.ring.material.opacity = lit ? 1 : 0.5;
+    if(lit && !slot.filled){
+      slot.filled=true;
+      const spark=new THREE.PointLight(0x60a5fa,2,1.5);
+      spark.position.set(slot.x,0.8,slot.z);
+      scene.add(spark);
+      setTimeout(()=>scene.remove(spark),600);
+    }else if(!lit && slot.filled){
+      slot.filled=false;
+    }
+  });
+}
+
+function updateTowerVisual(dusman, dost){
+  if(dusman===0 && dost===0){
+    towerHead.material.color.set(0x1e293b);
+    blueLight.intensity=0.5;
+  } else if(dost===0 && CFG.maxDost > 0){
+    towerHead.material.color.set(0xeab308); 
+    blueLight.color.set(0xeab308);
+    blueLight.intensity=1.8;
+  } else {
+    towerHead.material.color.set(0x10B981); 
+    blueLight.color.set(0x10B981);
+    blueLight.intensity=4;
+  }
+  
+  rings.forEach((r,i)=>{
+    if(i===0){      
+      const vis = dusman > 0;
+      r.material.opacity = vis ? 0.8 : 0;
+      r.material.color.set(0xef4444);
+    } else if(i===1){ 
+      const vis = dost > 0;
+      r.material.opacity = vis ? 0.8 : 0;
+      r.material.color.set(0x3b82f6);
+    } else {         
+      r.material.opacity = (dusman>=CFG.maxDusman && dost>=CFG.maxDost) ? 0.9 : 0;
+      r.material.color.set(0x10B981);
+    }
+  });
+}
+
+function nexBark(text, mood='default', face='🤖'){
+  clearTimeout(STATE.barkTimer);
+  const bubble=document.getElementById('bark-bubble');
+  const textEl=document.getElementById('bark-text');
+  const faceEl=document.getElementById('nex-face');
+
+  bubble.className='';
+  textEl.textContent=text;
+  faceEl.textContent=face;
+
+  if(mood==='happy') bubble.classList.add('mood-happy');
+  else if(mood==='danger') bubble.classList.add('mood-danger');
+  else if(mood==='warn') bubble.classList.add('mood-warn');
+
+  bubble.classList.add('show');
+  STATE.barkTimer=setTimeout(()=>bubble.classList.remove('show'),3500);
+}
+
+function selectBlock(type){
+  const el=document.getElementById('pb-'+type);
+  if(!el||el.classList.contains('locked'))return;
+  STATE.selectedType=type;
+  document.querySelectorAll('.pal-block').forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
+  const def=BDEFS[type];
+  if(def){
+    ghostMesh.material.color.set(def.color);
+    ghostMesh.material.emissive = new THREE.Color(def.emissive||0x000000);
+  }
+}
+
+function activateSystem(){
+  if(CFG.accuracyCheck) {
+      const fill = document.getElementById('power-bar-fill');
+      const score = parseInt(fill.style.width);
+      if(score < 70) {
+          nexBark("Eğitim seviyesi %70 altında! Daha fazla blok yerleştir!", "danger");
+          return;
+      }
+  }
+
+  document.getElementById('btn-activate').disabled=true;
+  document.getElementById('btn-activate').textContent='⚡ Hazır!';
+  STATE.phase=2;
+  STATE.waveActive=true;
+  ghostMesh.visible=false;
+
+  nexBark('⚠️ DİKKAT! GLITCH saldırıyor!', 'danger', '😤');
+
+  document.getElementById('glitch-alert').classList.add('show');
+  document.getElementById('wave-overlay').style.display='flex';
+  STATE.failed = false;
+  STATE.misses = 0;
+  STATE.hits = 0;
+  STATE.totalBotsSpawned = 0;
+
+  let waveDuration = CFG.wavePattern.length * 1000;
+  CFG.wavePattern.forEach((type, i) => {
+    setTimeout(()=>spawnBot(type), i * 1000); 
+  });
+
+  setTimeout(()=>{
+    if(STATE.phase===2 && !STATE.failed){
+      document.getElementById('wave-overlay').style.display='none';
+      document.getElementById('glitch-alert').classList.remove('show');
+      showVictory();
+    }
+  }, waveDuration + 4000);
+}
+
+function spawnBot(type){
+  if(STATE.phase !== 2 || STATE.failed) return;
+  STATE.totalBotsSpawned++;
+
+  const angle=Math.random()*Math.PI*2;
+  const startDist=11;
+  const sx=Math.sin(angle)*startDist;
+  const sz=Math.cos(angle)*startDist;
+
+  let geo, mat;
+  if(type === 'enemy'){
+    geo = new THREE.BoxGeometry(1,1,1);
+    mat = new THREE.MeshLambertMaterial({color:0xef4444,emissive:0x7f1d1d,emissiveIntensity:0.5});
+  } else {
+    geo = new THREE.OctahedronGeometry(0.7);
+    mat = new THREE.MeshLambertMaterial({color:0x3b82f6,emissive:0x1e3a5f,emissiveIntensity:0.5});
+  }
+
+  const bot=new THREE.Mesh(geo,mat);
+  bot.position.set(sx,0.4,sz);
+  bot.castShadow=true;
+  scene.add(bot);
+
+  GLITCH_BOTS.push({
+    mesh:bot,
+    type: type,
+    speed:CFG.waveSpeed,
+    deflected:false,
+    deflectT:0
+  });
+}
+
+function showFailure(reason){
+  STATE.phase=3;
+  STATE.failed=true;
+  document.getElementById('wave-overlay').style.display='none';
+  document.getElementById('glitch-alert').classList.remove('show');
+  
+  GLITCH_BOTS.forEach(b=>{scene.remove(b.mesh);});
+  GLITCH_BOTS.length=0;
+
+  const fScreen = document.getElementById('failure-screen');
+  fScreen.style.display='flex';
+  if(reason === 'bias'){
+    document.getElementById('fail-title').innerText = "FACİA! KENDİ DOSYAMIZI SİLDİK!";
+    document.getElementById('fail-desc').innerText = "Yapay Zeka mavi renkli kendi sistem dosyamızı sildi!";
+    document.getElementById('fail-lesson').innerHTML = "💡 <strong>ÖNYARGI HATASI (Bias):</strong> Yapay Zeka'ya sadece Virüsleri öğrettin. Temiz verileri bilmediği için, hareket eden her şeyi virüs sandı! Buna yapay zekada 'Ön Yargı' denir.";
+    nexBark('HAYIR! Kendi gemimizi vurduk!','danger','😱');
+  } else if (reason === 'accuracy') {
+    document.getElementById('fail-title').innerText = "HATA! VİRÜSLER İÇERİ GİRDİ!";
+    document.getElementById('fail-desc').innerText = "İsabet oranımız düşük kaldı!";
+    document.getElementById('fail-lesson').innerHTML = "💡 AI bazı virüsleri tanıyamadı. Daha çok veri ve nöron ekleyerek modeli güçlendirmelisin!";
+    nexBark('Virüsler sızdı!','danger','😱');
+  }
+}
+
+function retryLevel(){
+  STATE.phase=1;
+  STATE.failed=false;
+  document.getElementById('failure-screen').style.display='none';
+  document.getElementById('btn-activate').disabled=false;
+  document.getElementById('btn-activate').textContent='▶ EĞİTİMİ TAMAMLA!';
+  onBlockChanged(); 
+}
+
+function showVictory(){
+  STATE.phase=3;
+  GLITCH_BOTS.forEach(b=>{scene.remove(b.mesh);});
+  GLITCH_BOTS.length=0;
+  blueLight.intensity=6;
+  spawnParticles();
+  document.getElementById('xp-text').innerText = `+${CFG.xp} XP KAZANILDI! 🌟`;
+  document.getElementById('victory-screen').style.display='flex';
+  nexBark('İŞTE BU! Yapay Zeka başarıyla eğitildi!','happy','🎉');
+  
+  const nextBtn = document.getElementById('btn-next-mission');
+  if (MISSION === 'c-g1-1') {
+      nextBtn.style.display = 'block';
+      nextBtn.onclick = () => { window.parent.location.href = '/ders/c-g1-2'; };
+  } else if (MISSION === 'c-g1-2') {
+      nextBtn.style.display = 'block';
+      nextBtn.onclick = () => { window.parent.location.href = '/ders/c-g1-3'; };
+  } else {
+      nextBtn.style.display = 'none';
+      document.getElementById('btn-finish-chapter').style.display = 'block';
+  }
+  
+  if(window.parent) window.parent.postMessage({type:'UNDERTALE_SECTION_CLEARED',xp:CFG.xp},'*');
+}
+
+function spawnParticles(){
+  const cols=['#10B981','#3b82f6','#fbbf24','#8b5cf6','#f97316'];
+  for(let i=0;i<32;i++){
+    const p=document.createElement('div');
+    p.className='vp';
+    p.style.width=p.style.height=(6+Math.random()*8)+'px';
+    p.style.background=cols[i%cols.length];
+    p.style.left=(10+Math.random()*80)+'%';
+    p.style.top=(20+Math.random()*60)+'%';
+    p.style.setProperty('--tx',(Math.random()-.5)*220+'px');
+    p.style.setProperty('--ty',(-60-Math.random()*160)+'px');
+    p.style.animationDelay=(Math.random()*.5)+'s';
+    document.getElementById('app').appendChild(p);
+    setTimeout(()=>p.remove(),2000);
+  }
+}
+
+function shatterBot(pos, color){
+  for(let i=0;i<15;i++){
+    const geo = new THREE.BoxGeometry(0.3,0.3,0.3);
+    const mat = new THREE.MeshLambertMaterial({color:color, emissive:color, emissiveIntensity:0.5});
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    SHATTERS.push({
+      mesh: mesh,
+      vx: (Math.random()-0.5)*0.3,
+      vy: Math.random()*0.4,
+      vz: (Math.random()-0.5)*0.3,
+      life: 1.0
+    });
+  }
+}
+
+function shootLaser(targetPos, isFatal){
+  const material = new THREE.LineBasicMaterial({
+    color: isFatal ? 0xff0000 : 0xffffff,
+    linewidth: 3,
+    transparent: true,
+    opacity: 1
+  });
+  const points = [towerHead.position.clone(), targetPos.clone()];
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const line = new THREE.Line(geometry, material);
+  scene.add(line);
+  if(window.playLaserSound) window.playLaserSound();
+  LASERS.push({mesh: line, life: 1.0});
+  
+  const cvs = document.getElementById('three-canvas');
+  cvs.classList.remove('shake');
+  void cvs.offsetWidth;
+  cvs.classList.add('shake');
+}
+
+let currentTutStep = 0;
+let tutSequence = [];
+
+function startTutorial() {
+  tutSequence = TUTORIAL_DATA[MISSION] || TUTORIAL_DATA['c-g1-1'];
+  currentTutStep = 0;
+  showTutorialStep();
+}
+
+function showTutorialStep() {
+  const step = tutSequence[currentTutStep];
+  document.getElementById('tut-title').innerText = step.title;
+  document.getElementById('tut-text').innerText = step.text;
+  const btn = document.getElementById('tut-btn');
+  if (currentTutStep === tutSequence.length - 1) {
+    btn.innerText = "⚡ GÖREVE BAŞLA!";
+    btn.style.background = "linear-gradient(135deg,#f59e0b,#d97706)";
+  } else {
+    btn.innerText = "Devam Et ➔";
+    btn.style.background = "linear-gradient(135deg,#10B981,#059669)";
+  }
+}
+
+function nextTutorialStep() {
+  currentTutStep++;
+  if (currentTutStep >= tutSequence.length) {
+    finishTutorialAndStart();
+  } else {
+    showTutorialStep();
+  }
+}
+
+function finishTutorialAndStart(){
+  document.getElementById('tutorial-overlay').style.display='none';
+  document.getElementById('hud-top').style.display='flex';
+  document.getElementById('palette').style.display='flex';
+  document.getElementById('power-hud').style.display='flex';
+  document.getElementById('nex-bark').style.display='flex';
+  STATE.started=true;
+  STATE.phase=1;
+
+  CFG.unlockedBlocks.forEach(b => {
+    const el = document.getElementById('pb-'+b);
+    if(el) {
+      el.classList.remove('locked');
+      const lock = el.querySelector('.lock-overlay');
+      if(lock) lock.style.display = 'none';
+    }
+  });
+  if(CFG.unlockedBlocks.length > 0) {
+      selectBlock(CFG.unlockedBlocks[0]);
+  }
+}
+
+// Auto-start tutorial on load
+startTutorial();
+
+function resize(){
+  renderer.setSize(W(), H());
+  camera.aspect=W()/H();
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize);
+
+let t=0;
+function animate(){
+  requestAnimationFrame(animate);
+  t+=0.012;
+
+  towerHead.rotation.y=t*0.8;
+  towerHead.rotation.x=Math.sin(t*0.5)*0.2;
+
+  rings.forEach((r,i)=>{ r.rotation.z=t*(0.5+i*0.15); });
+
+  DATA_SLOTS.forEach((s,i)=>{
+    s.glow.intensity=s.filled ? (1.2+Math.sin(t*3+i)*0.4) : (0.3+Math.sin(t+i)*0.15);
+  });
+
+  for(let i=SHATTERS.length-1; i>=0; i--){
+    const s = SHATTERS[i];
+    s.mesh.position.x += s.vx;
+    s.mesh.position.y += s.vy;
+    s.mesh.position.z += s.vz;
+    s.vy -= 0.02;
+    s.life -= 0.025;
+    if(s.mesh.position.y < 0.05){
+      s.mesh.position.y = 0.05;
+      s.vy *= -0.5;
+    }
+    s.mesh.scale.setScalar(Math.max(0, s.life));
+    if(s.life <= 0){
+      scene.remove(s.mesh);
+      SHATTERS.splice(i,1);
+    }
+  }
+
+  for(let i=LASERS.length-1; i>=0; i--){
+    const l = LASERS[i];
+    l.life -= 0.15;
+    l.mesh.material.opacity = l.life;
+    if(l.life <= 0){
+      scene.remove(l.mesh);
+      LASERS.splice(i,1);
+    }
+  }
+
+  GLITCH_BOTS.forEach((bot,idx)=>{
+    if(bot.deflected){
+      bot.deflectT+=0.06;
+      if(bot.mesh.visible){
+        bot.mesh.position.y=0.4+Math.sin(bot.deflectT*3)*0.5;
+        bot.mesh.scale.setScalar(Math.max(0,1-bot.deflectT*0.5));
+      }
+      if(bot.deflectT>2){scene.remove(bot.mesh);GLITCH_BOTS.splice(idx,1);}
+      return;
+    }
+    
+    const pos = bot.mesh.position.clone();
+    pos.y = 0;
+    const dir = pos.clone().negate().normalize();
+    bot.mesh.position.addScaledVector(dir, bot.speed);
+    bot.mesh.position.y = 0.4;
+    bot.mesh.rotation.y = t * 3;
+
+    const tx = bot.mesh.position.x;
+    const tz = bot.mesh.position.z;
+    const dist = Math.sqrt(tx*tx + tz*tz);
+    
+    if(dist < 2.5){
+      if(bot.type === 'enemy'){
+        const score = parseInt(document.getElementById('power-bar-fill').style.width) || 0;
+        const willHit = (!CFG.accuracyCheck) || (Math.random()*100 < score);
+        if(willHit){
+            bot.deflected=true;
+            bot.mesh.visible=false;
+            shootLaser(bot.mesh.position, false);
+            shatterBot(bot.mesh.position, 0xef4444);
+            towerHead.material.emissive=new THREE.Color(0xffffff);
+            towerHead.material.emissiveIntensity=1.5;
+            setTimeout(()=>{ towerHead.material.emissiveIntensity=0; },120);
+        } else {
+            if(CFG.failurePossible) {
+                bot.deflected=true;
+                showFailure('accuracy');
+            }
+        }
+      } 
+      else if(bot.type === 'friend'){
+        if(STATE.dostCount > 0){
+          bot.deflected=true; 
+          bot.mesh.material.color.set(0x10B981);
+          bot.mesh.material.emissive=new THREE.Color(0x052e16);
+        } else {
+          if(CFG.biasTrap) {
+              bot.deflected=true;
+              bot.mesh.visible=false;
+              shootLaser(bot.mesh.position, true);
+              shatterBot(bot.mesh.position, 0x3b82f6);
+              towerHead.material.emissive=new THREE.Color(0xff0000); 
+              towerHead.material.emissiveIntensity=3;
+              setTimeout(()=>{ towerHead.material.emissiveIntensity=0; },200);
+              if(!STATE.failed) showFailure('bias');
+          } else {
+              bot.deflected=true; 
+              bot.mesh.material.color.set(0x10B981);
+          }
+        }
+      }
+    }
+  });
+
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>

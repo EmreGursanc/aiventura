@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI-DEX | Undertale Overworld AI Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #050811;
+    color: #ffffff;
+    font-family: 'Press Start 2P', monospace;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #game-container {
+    position: relative;
+    width: 720px;
+    height: 520px;
+    max-width: 100vw;
+    max-height: 100vh;
+    background: #0f172a;
+    border: 4px solid #ffffff;
+    box-shadow: 0 0 35px rgba(6, 182, 212, 0.3);
+    overflow: hidden;
+  }
+
+  /* Canvas Harita */
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+
+  /* Tuş İpucu Overlay */
+  #interact-hint {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000000;
+    color: #ffff00;
+    border: 3px solid #ffffff;
+    padding: 8px 16px;
+    font-size: 11px;
+    display: none;
+    z-index: 20;
+    box-shadow: 0 4px 0px rgba(0, 0, 0, 0.5);
+    animation: bounce 0.8s infinite alternate;
+  }
+
+  @keyframes bounce {
+    0% { transform: translate(-50%, 0); }
+    100% { transform: translate(-50%, -4px); }
+  }
+
+  /* Undertale Diyalog Kutusu */
+  #dialog-box {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    height: 130px;
+    background: #000000;
+    border: 4px solid #ffffff;
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    padding: 14px;
+    gap: 16px;
+    z-index: 50;
+  }
+
+  #dialog-portrait {
+    width: 70px;
+    height: 70px;
+    border: 3px solid #ffffff;
+    background: #111122;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    flex-shrink: 0;
+  }
+
+  #dialog-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+  }
+
+  #dialog-speaker {
+    color: #ff7900;
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  #dialog-text {
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  #dialog-next {
+    align-self: flex-end;
+    color: #ffff00;
+    font-size: 10px;
+    animation: blink 0.8s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* Kapsül Prompt Modalı (Çocuklar İçin Çift Sekmeli Bulmaca) */
+  #capsule-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 8, 17, 0.96);
+    border: 5px solid #00ffff;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+    z-index: 100;
+    box-shadow: inset 0 0 30px rgba(0, 255, 255, 0.2);
+  }
+
+  /* Sekme Butonları */
+  .capsule-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    background: #020617;
+    border: 2px solid #334155;
+    color: #94a3b8;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+
+  .tab-btn.active {
+    background: #00ffff;
+    color: #000000;
+    border-color: #00ffff;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+
+  /* Scratch Blokları Konteyneri */
+  .block-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .block-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: #090d16;
+    padding: 10px;
+    border: 2px dashed #00ffff;
+    min-height: 70px;
+  }
+
+  .scratch-block {
+    padding: 8px 12px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 3px 0px rgba(0,0,0,0.5);
+    transition: transform 0.1s ease;
+  }
+  .scratch-block:hover { transform: scale(1.04); }
+
+  .block-yellow { background: #eab308; color: #000; border: 2px solid #fef08a; }
+  .block-purple { background: #a855f7; color: #fff; border: 2px solid #e9d5ff; }
+  .block-cyan { background: #06b6d4; color: #000; border: 2px solid #cffaff; }
+  .block-green { background: #22c55e; color: #000; border: 2px solid #bbf7d0; }
+
+  /* Kapsül Yuvası (Dizilen Bloklar) */
+  .capsule-slot {
+    background: #020617;
+    border: 3px solid #eab308;
+    padding: 10px;
+    min-height: 65px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  /* Görsel Kart Seçici Grid */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .visual-card {
+    background: #0f172a;
+    border: 3px solid #334155;
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+
+  .visual-card:hover { border-color: #00ffff; transform: translateY(-2px); }
+  .visual-card.selected { border-color: #22c55e; background: #064e3b; box-shadow: 0 0 12px #22c55e; }
+  .visual-card .card-icon { font-size: 28px; }
+  .visual-card .card-label { font-size: 8px; color: #cbd5e1; line-height: 1.3; }
+
+  #capsule-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .capsule-btn {
+    padding: 12px 18px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    border: 3px solid #00ffff;
+    background: #000000;
+    color: #00ffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .capsule-btn:hover {
+    background: #00ffff;
+    color: #000000;
+    box-shadow: 0 0 15px #00ffff;
+  }
+
+  /* Zafer Ekranı */
+  #victory-screen {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.96);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 200;
+    text-align: center;
+  }
+
+  #victory-screen h1 {
+    color: #ffff00;
+    font-size: 22px;
+    animation: pulse 1s infinite alternate;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.08); }
+  }
+</style>
+<script src="/game/audio.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="gameCanvas" width="720" height="520"></canvas>
+
+  <div id="interact-hint">💬 [E] KONUŞ</div>
+
+  <!-- Undertale Diyalog Kutusu -->
+  <div id="dialog-box">
+    <div id="dialog-portrait">🤖</div>
+    <div id="dialog-content">
+      <div>
+        <div id="dialog-speaker">ROBOT NEXUS</div>
+        <div id="dialog-text">Merhaba! Yapay zeka kalıpları öğrenebilmek için...</div>
+      </div>
+      <div id="dialog-next">▶ [DEVAM ET]</div>
+    </div>
+  </div>
+
+  <!-- Kapsül Prompt Modalı (Çocuklar İçin Çift Sekmeli Yapboz) -->
+  <div id="capsule-modal">
+    <div>
+      <h2 style="color: #00ffff; font-size: 12px; margin-bottom: 8px;">🚀 BÖLÜM SONU AI KAPSÜLÜ</h2>
+
+      <!-- Sekme Butonları -->
+      <div class="capsule-tabs">
+        <button class="tab-btn active" id="tab-blocks-btn" onclick="switchCapsuleTab('blocks')">🧩 SCRATCH BLOKLARI</button>
+        <button class="tab-btn" id="tab-cards-btn" onclick="switchCapsuleTab('cards')">🃏 GÖRSEL KARTLAR</button>
+      </div>
+
+      <!-- SEKME 1: Scratch Blok Yapbozu -->
+      <div id="tab-blocks-content" class="block-container">
+        <p style="color: #94a3b8; font-size: 9px; margin-bottom: 4px;">1. Bloklara tıklayarak Kapsül Yuvasına sırayla yerleştir:</p>
+        <div class="block-pool" id="block-pool">
+          <div class="scratch-block block-yellow" onclick="addBlockToSlot('veriseti', '🐱 1. GÖRSEL VERİ SETİ', 'block-yellow')">🐱 1. GÖRSEL VERİ SETİ</div>
+          <div class="scratch-block block-purple" onclick="addBlockToSlot('kalip', '🔍 2. KALIP EŞLEŞTİRME', 'block-purple')">🔍 2. KALIP EŞLEŞTİRME</div>
+          <div class="scratch-block block-cyan" onclick="addBlockToSlot('noron', '🧠 3. NÖRON EĞİTİMİ', 'block-cyan')">🧠 3. NÖRON EĞİTİMİ</div>
+          <div class="scratch-block block-green" onclick="addBlockToSlot('prompt', '✨ 4. PROMPT ÇIKTISI', 'block-green')">✨ 4. PROMPT ÇIKTISI</div>
+        </div>
+
+        <p style="color: #eab308; font-size: 9px; margin-top: 6px; margin-bottom: 4px;">2. Kapsül Yuvası (Dizilen Akış):</p>
+        <div class="capsule-slot" id="capsule-slot">
+          <span style="color: #64748b; font-size: 9px;" id="slot-placeholder">Yukarıdaki renkli bloklara tıklayarak buraya diz...</span>
+        </div>
+      </div>
+
+      <!-- SEKME 2: Görsel Kart Seçici -->
+      <div id="tab-cards-content" style="display: none;">
+        <p style="color: #94a3b8; font-size: 9px; margin-bottom: 8px;">Yapay zekanın kedi kalıplarını öğrenmesi için doğru 3 resimli kartı seç:</p>
+        <div class="card-grid">
+          <div class="visual-card" onclick="toggleCard(this, 'kulak')">
+            <span class="card-icon">🐱</span>
+            <span class="card-label">Sivri Kulak Kalıbı</span>
+          </div>
+          <div class="visual-card" onclick="toggleCard(this, 'biyik')">
+            <span class="card-icon">🔍</span>
+            <span class="card-label">Bıyık Çizgileri</span>
+          </div>
+          <div class="visual-card" onclick="toggleCard(this, 'noron')">
+            <span class="card-icon">🧠</span>
+            <span class="card-label">Nöron Ağ Eğitimi</span>
+          </div>
+          <div class="visual-card" onclick="toggleCard(this, 'yanlis1')">
+            <span class="card-icon">🍌</span>
+            <span class="card-label">Muz Kabuğu</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="capsule-actions" style="margin-top: 10px;">
+      <button class="capsule-btn" onclick="closeCapsuleModal()">KAPAT</button>
+      <button class="capsule-btn" style="border-color: #00ff00; color: #00ff00;" onclick="submitCapsulePuzzle()">🚀 KAPSÜLÜ ATEŞLE! ➔</button>
+    </div>
+  </div>
+
+  <!-- Zafer Ekranı -->
+  <div id="victory-screen">
+    <h1>BÖLÜM GEÇİLDİ! 🎉</h1>
+    <p style="color: #ffffff; font-size: 11px; max-width: 480px; line-height: 1.7;">
+      🚀 KAPSÜL AKTİF EDİLDİ! Yapay zeka kalıp tanıma görevi başarıyla tamamlandı.
+    </p>
+    <p style="color: #00ff00; font-size: 14px; margin-top: 10px;">+100 XP KAZANILDI! 🌟</p>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  // Harita Yapısı (Snowdin / Undertale Tarzı Top-Down)
+  const TILE_SIZE = 40;
+  const MAP_COLS = 18;
+  const MAP_ROWS = 13;
+
+  // Oyuncu Konumu (Frisk / Astronot)
+  const player = {
+    x: 80,
+    y: 260,
+    size: 24,
+    speed: 3.2,
+    dir: 'down'
+  };
+
+  // NPC'ler (Undertale Karakterleri & Bilgileri)
+  const npcs = [
+    {
+      id: 1,
+      x: 200,
+      y: 180,
+      sprite: '🤖',
+      name: 'ROBOT NEXUS',
+      dialogs: [
+        "Selam kaşif! Ben Yapay Zeka Rehberin NEXUS!",
+        "Yapay zeka insan beynindeki gibi nöron kalıpları kurarak öğrenir.",
+        "Öncelikle binlerce kedi ve köpek görselini inceleyip farkları öğrenir!"
+      ]
+    },
+    {
+      id: 2,
+      x: 420,
+      y: 140,
+      sprite: '🐱',
+      name: 'KEDİ ARAŞTIRMACISI',
+      dialogs: [
+        "Miyav! Bıyık ve sivri kulak kalıpları benim uzmanlık alanım!",
+        "Bir AI modeline 'Bu bir kedidir' dediğimizde kalıpları eşleştirir.",
+        "Sonunda Kapsüle gidip doğru Promptu yazmayı unutma!"
+      ]
+    },
+    {
+      id: 3,
+      x: 360,
+      y: 360,
+      sprite: '🐻',
+      name: 'KASABA BEKÇİSİ',
+      dialogs: [
+        "Hoş geldin! Haritanın sonundaki parlayan Kapsüle ulaştın mı?",
+        "Kapsüle doğru Promptu yazdığında enerji üretecek ve bölümü geçeceksin!"
+      ]
+    }
+  ];
+
+  // AI Prompt Kapsülü (Haritanın Sonu)
+  const capsule = {
+    x: 620,
+    y: 240,
+    size: 48,
+    active: false
+  };
+
+  // Tuş Kontrolleri
+  const keys = {};
+  window.addEventListener("keydown", e => {
+    keys[e.key.toLowerCase()] = true;
+    if (e.key.toLowerCase() === 'e' || e.key === ' ') {
+      handleInteraction();
+    }
+  });
+  window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  let activeNPC = null;
+  let dialogIndex = 0;
+  let isDialogueOpen = false;
+
+  // Yakındaki Nesne Kontrolü
+  function getNearbyTarget() {
+    // NPC Testi
+    for (const npc of npcs) {
+      const dist = Math.hypot(player.x - npc.x, player.y - npc.y);
+      if (dist < 45) return { type: 'npc', target: npc };
+    }
+    // Kapsül Testi
+    const cDist = Math.hypot(player.x - capsule.x, player.y - capsule.y);
+    if (cDist < 55) return { type: 'capsule', target: capsule };
+
+    return null;
+  }
+
+  // Etkileşim Tetikleyici (E tuşu)
+  function handleInteraction() {
+    if (isDialogueOpen) {
+      // Diyalog Devam Ettir
+      dialogIndex++;
+      if (dialogIndex >= activeNPC.dialogs.length) {
+        closeDialogue();
+      } else {
+        renderDialogueText();
+      }
+      return;
+    }
+
+    const nearby = getNearbyTarget();
+    if (!nearby) return;
+
+    if (nearby.type === 'npc') {
+      activeNPC = nearby.target;
+      dialogIndex = 0;
+      isDialogueOpen = true;
+      document.getElementById("dialog-box").style.display = "flex";
+      document.getElementById("dialog-portrait").textContent = activeNPC.sprite;
+      document.getElementById("dialog-speaker").textContent = activeNPC.name;
+      renderDialogueText();
+    } else if (nearby.type === 'capsule') {
+      document.getElementById("capsule-modal").style.display = "flex";
+    }
+  }
+
+  function renderDialogueText() {
+    document.getElementById("dialog-text").textContent = activeNPC.dialogs[dialogIndex];
+  }
+
+  function closeDialogue() {
+    isDialogueOpen = false;
+    activeNPC = null;
+    document.getElementById("dialog-box").style.display = "none";
+  }
+
+  function closeCapsuleModal() {
+    document.getElementById("capsule-modal").style.display = "none";
+  }
+
+  // --- Çocuklar İçin Çift Sekmeli Yapboz Mantığı ---
+  let activeTab = 'blocks';
+  const selectedBlocks = [];
+  const selectedCards = new Set();
+
+  function switchCapsuleTab(tab) {
+    activeTab = tab;
+    document.getElementById("tab-blocks-btn").classList.toggle("active", tab === 'blocks');
+    document.getElementById("tab-cards-btn").classList.toggle("active", tab === 'cards');
+    document.getElementById("tab-blocks-content").style.display = tab === 'blocks' ? 'flex' : 'none';
+    document.getElementById("tab-cards-content").style.display = tab === 'cards' ? 'block' : 'none';
+  }
+
+  function addBlockToSlot(id, label, colorClass) {
+    if (selectedBlocks.some(b => b.id === id)) return;
+    selectedBlocks.push({ id, label, colorClass });
+    renderSlotBlocks();
+  }
+
+  function removeBlockFromSlot(id) {
+    const idx = selectedBlocks.findIndex(b => b.id === id);
+    if (idx !== -1) selectedBlocks.splice(idx, 1);
+    renderSlotBlocks();
+  }
+
+  function renderSlotBlocks() {
+    const slot = document.getElementById("capsule-slot");
+    const placeholder = document.getElementById("slot-placeholder");
+
+    if (selectedBlocks.length === 0) {
+      slot.innerHTML = '<span style="color: #64748b; font-size: 9px;" id="slot-placeholder">Yukarıdaki renkli bloklara tıklayarak buraya diz...</span>';
+      return;
+    }
+
+    slot.innerHTML = '';
+    selectedBlocks.forEach(b => {
+      const el = document.createElement("div");
+      el.className = `scratch-block ${b.colorClass}`;
+      el.textContent = b.label + " ✖";
+      el.onclick = () => removeBlockFromSlot(b.id);
+      slot.appendChild(el);
+    });
+  }
+
+  function toggleCard(cardEl, id) {
+    if (selectedCards.has(id)) {
+      selectedCards.delete(id);
+      cardEl.classList.remove("selected");
+    } else {
+      selectedCards.add(id);
+      cardEl.classList.add("selected");
+    }
+  }
+
+  function submitCapsulePuzzle() {
+    let success = false;
+
+    if (activeTab === 'blocks') {
+      if (selectedBlocks.length >= 3) {
+        success = true;
+      } else {
+        alert("Lütfen Kapsülü ateşlemek için en az 3 renkli yapay zeka bloğunu yuvaya yerleştir!");
+        return;
+      }
+    } else {
+      if (selectedCards.has('kulak') && selectedCards.has('noron')) {
+        success = true;
+      } else {
+        alert("Lütfen yapay zekanın öğrenmesi için doğru 2 kalıp kartını seç!");
+        return;
+      }
+    }
+
+    if (success) {
+      closeCapsuleModal();
+      capsule.active = true;
+      document.getElementById("victory-screen").style.display = "flex";
+
+      // Üst React Uygulamasına İlerleme Gönder
+      if (window.parent) {
+        window.parent.postMessage({ type: 'UNDERTALE_SECTION_CLEARED', xp: 100 }, '*');
+      }
+    }
+  }
+
+  // Oyun Döngüsü
+  function update() {
+    if (isDialogueOpen || capsule.active) return;
+
+    let dx = 0, dy = 0;
+    if (keys["w"] || keys["arrowup"]) { dy -= 1; player.dir = 'up'; }
+    if (keys["s"] || keys["arrowdown"]) { dy += 1; player.dir = 'down'; }
+    if (keys["a"] || keys["arrowleft"]) { dx -= 1; player.dir = 'left'; }
+    if (keys["d"] || keys["arrowright"]) { dx += 1; player.dir = 'right'; }
+
+    if (dx || dy) {
+      const len = Math.hypot(dx, dy);
+      dx /= len; dy /= len;
+      player.x = Math.max(30, Math.min(canvas.width - 30, player.x + dx * player.speed));
+      player.y = Math.max(30, Math.min(canvas.height - 30, player.y + dy * player.speed));
+    }
+
+    // Yakındaki Etkileşim İpucunu Göster
+    const nearby = getNearbyTarget();
+    const hintEl = document.getElementById("interact-hint");
+    if (nearby && !isDialogueOpen) {
+      hintEl.style.display = "block";
+      hintEl.textContent = nearby.type === 'npc' ? `💬 [E] ${nearby.target.name} İLE KONUŞ` : `🚀 [E] KAPSÜLÜ ÇALIŞTIR`;
+    } else {
+      hintEl.style.display = "none";
+    }
+  }
+
+  // Çizim Döngüsü (Undertale Snowdin Pixel Style)
+  function draw() {
+    // 1. Zemin (Karlı / Koyu Mavi Top-Down Zemin)
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Kareli Izgara Yolu
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += TILE_SIZE) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += TILE_SIZE) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    // Çam Ağaçları (Üst ve Alt Sınırlar - Snowdin Ağaçları)
+    ctx.font = "28px sans-serif";
+    for (let x = 10; x < canvas.width; x += 36) {
+      ctx.fillText("🌲", x, 32);
+      ctx.fillText("🌲", x, canvas.height - 10);
+    }
+
+    // Evler & Dekorlar
+    ctx.font = "40px sans-serif";
+    ctx.fillText("🏠", 120, 120);
+    ctx.fillText("🎄", 540, 140);
+    ctx.fillText("📦", 580, 160);
+
+    // Kapsül (Bölüm Sonu Kapsülü)
+    ctx.save();
+    ctx.shadowColor = "#00ffff";
+    ctx.shadowBlur = 20;
+    ctx.font = "44px sans-serif";
+    ctx.fillText("🚀", capsule.x - 22, capsule.y + 15);
+    ctx.restore();
+
+    ctx.fillStyle = "#00ffff";
+    ctx.font = "10px 'Press Start 2P'";
+    ctx.fillText("KAPSÜL", capsule.x - 24, capsule.y + 35);
+
+    // NPC'ler
+    for (const npc of npcs) {
+      ctx.font = "32px sans-serif";
+      ctx.fillText(npc.sprite, npc.x - 16, npc.y + 12);
+
+      // İsim Etiketi
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "8px 'Press Start 2P'";
+      ctx.textAlign = "center";
+      ctx.fillText(npc.name, npc.x, npc.y - 20);
+    }
+
+    // Oyuncu (Frisk / Kırmızı Kalpli Kaşif)
+    ctx.save();
+    ctx.shadowColor = "#ff0000";
+    ctx.shadowBlur = 12;
+    ctx.font = "26px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("❤️", player.x, player.y + 8);
+    ctx.restore();
+
+    ctx.fillStyle = "#ffff00";
+    ctx.font = "8px 'Press Start 2P'";
+    ctx.textAlign = "center";
+    ctx.fillText("KAŞİF", player.x, player.y - 16);
+  }
+
+  function mainLoop() {
+    update();
+    draw();
+    requestAnimationFrame(mainLoop);
+  }
+
+  mainLoop();
+</script>
+</body>
+</html>
