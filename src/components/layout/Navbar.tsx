@@ -59,18 +59,7 @@ export default function Navbar({ aktifIz, onIzDegistir }: NavbarProps) {
           </div>
           <div className="flex items-center gap-2">
             <span className="pixel-sm text-yazi hidden sm:block">AIVentura</span>
-            <span
-              className="pixel-xs hidden sm:inline-block"
-              style={{
-                color: '#10B981',
-                background: 'rgba(16,185,129,0.12)',
-                border: '1px solid rgba(16,185,129,0.4)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-              }}
-            >
-              BETA
-            </span>
+            
           </div>
         </a>
 

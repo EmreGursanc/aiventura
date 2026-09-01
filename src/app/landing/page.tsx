@@ -78,7 +78,7 @@ export default function LandingSayfasi() {
             {/* CTA Butonları */}
             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2 w-full sm:w-auto">
               <a
-                href="#dunyalar"
+                href="/labs"
                 className="btn-yesil text-base px-8 py-3.5 w-full sm:w-auto text-center"
                 id="hero-basla-btn"
               >
@@ -95,8 +95,8 @@ export default function LandingSayfasi() {
             {/* Canlı İstatistikler & Sosyal Kanıt */}
             <div className="flex items-center gap-8 pt-4 border-t border-sinir/60 w-full justify-center lg:justify-start">
               <div>
-                <div className="text-xl font-extrabold text-yazi font-kod">BETA</div>
-                <div className="text-xs text-yazi-soluk">Erken Erişim</div>
+                <div className="text-xl font-extrabold text-yazi font-kod">v2.0</div>
+                <div className="text-xs text-yazi-soluk">Yapay Zeka Çağı</div>
               </div>
               <div className="w-px h-8 bg-sinir" />
               <div>
@@ -213,19 +213,19 @@ export default function LandingSayfasi() {
                   💻
                 </div>
                 <div className="pixel-xs text-indigo-400 mb-2">ANALİTİK & TEKNİK ZEKALAR</div>
-                <h4 className="text-xl font-bold text-yazi mb-3">AIVentura Labs — Siber Dedektif</h4>
+                <h4 className="text-xl font-bold text-yazi mb-3">Yapay Zeka Dedektifi — Yıldız Köşkü Gizemi</h4>
                 <p className="text-yazi-iki text-sm leading-relaxed mb-6">
-                  Sistemi dışarıdan izleme, içine sız! Prompt mühendisliği, AI sistemlerini yönlendirme (hack) ve mantıksal algoritmaları çözme görevleriyle gerçek bir analitik ustasına dönüş.
+                  Kayıp bir vaka dosyasında gizlenmiş ipuçlarını çözerken Yapay Zeka komut yazımını (Prompt Mühendisliği) öğrenin. 4 bölümlük interaktif senaryoda kanıtları birleştirin ve gizemli vakayı aydınlatın.
                 </p>
                 <ul className="flex flex-col gap-2.5 text-xs text-yazi-soluk mb-8">
                   <li className="flex items-center gap-2">
-                    <span className="text-indigo-400">✓</span> İleri Seviye Prompt Mühendisliği
+                    <li className="flex items-center gap-2"><span className="text-indigo-400">🕵️</span> İnteraktif Vaka Senaryosu</li>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-indigo-400">✓</span> Prompt Injection (Hack) Görevleri
+                    <li className="flex items-center gap-2"><span className="text-indigo-400">🔍</span> Adli Bilişim Analizleri</li>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-indigo-400">✓</span> Mantıksal çıkarım ve vaka çözümü
+                    <li className="flex items-center gap-2"><span className="text-indigo-400">🧠</span> Gemini Destekli Yargıcı AI</li>
                   </li>
                 </ul>
               </div>

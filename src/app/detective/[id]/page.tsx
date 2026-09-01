@@ -5,6 +5,14 @@ import { DETECTIVE_MISSIONS, type Evidence } from '@/data/detective-missions'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import dynamic from 'next/dynamic'
+import { playGameSound } from '@/lib/gameSound'
+
+// Bölüm tam deneyim bileşenleri
+const Ep1Full = dynamic(() => import('@/components/game/Ep1Full'), { ssr: false })
+const Ep2Full = dynamic(() => import('@/components/game/Ep2Full'), { ssr: false })
+const Ep3Full = dynamic(() => import('@/components/game/Ep3Full'), { ssr: false })
+const Ep4Full = dynamic(() => import('@/components/game/Ep4Full'), { ssr: false })
 
 interface LogEntry {
   role: 'system' | 'user' | 'ai' | 'analysis'
@@ -316,6 +324,16 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
   const [conversationHistory, setConversationHistory] = useState<{role: 'user'|'assistant', content: string}[]>([])
   const [copiedId, setCopiedId] = useState<string|null>(null)
 
+  // ── BÖLÜM TAM DENEYİM (EP1-EP4) ──
+  const isEp1 = params.id === 'ep1'
+  const isLearningEpisode = ['ep1','ep2','ep3','ep4'].includes(params.id)
+  const [ep1Active, setEp1Active] = useState(isLearningEpisode)
+
+  // ── Geriye uyumluluk ──
+  const [showBriefing, setShowBriefing] = useState(false)
+  const [showBuilder, setShowBuilder] = useState(false)
+  const [lastXray, setLastXray] = useState<{hasRole: boolean; hasContext: boolean; hasFormat: boolean; score: number} | null>(null)
+
   // Kilitli kanıt dosyaları
   const [unlockedEvidence, setUnlockedEvidence] = useState<Set<string>>(new Set())
   const [unlockingId, setUnlockingId] = useState<string|null>(null)
@@ -503,6 +521,14 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
       if (data.analysis) {
         setLogs(prev => [...prev, { role: 'analysis', content: '', analysis: data.analysis }])
         updateNexSteps(data.analysis)
+        // AI X-Ray state güncelle
+        setLastXray({
+          hasRole: data.analysis.hasRole,
+          hasContext: data.analysis.hasContext,
+          hasFormat: data.analysis.hasFormat,
+          score: data.analysis.score ?? 0,
+        })
+        playGameSound(data.analysis.score >= 3 ? 'connect' : 'wrong')
 
         // Bu, gerçek bir analiz denemesiydi (sohbet/ipucu/kilit mesajı değil).
         // İlerleme olmadıysa "takıldın" sayısını artır — 2 kez takılınca örnek otomatik açılır.
@@ -530,7 +556,6 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
       if (data.success) {
         setIsSuccess(true)
         if (addXp) addXp(150)
-        // İlerlemeyi kaydet: tamamlanan bölümü localStorage'a yaz
         localStorage.setItem(`aidex_detective_${params.id}`, 'done')
         setLogs(prev => [...prev, {
           role: 'system',
@@ -553,16 +578,70 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
   return (
     <div className="min-h-screen bg-[#08090f] text-slate-300 font-mono flex flex-col md:flex-row overflow-hidden" style={{ height: '100vh' }}>
 
+
+      {/* ── TAM DENEYİM BÖLÜMLER (EP1-EP4) ────────────────────────────── */}
+      {ep1Active && params.id === 'ep1' && (
+        <Ep1Full
+          missionId={params.id}
+          playSound={playGameSound}
+          onComplete={(xp) => {
+            if (addXp) addXp(xp)
+            localStorage.setItem(`aidex_detective_${params.id}`, 'done')
+            setEp1Active(false)
+            router.push(`/detective/ep2`)
+          }}
+        />
+      )}
+      {ep1Active && params.id === 'ep2' && (
+        <Ep2Full
+          missionId={params.id}
+          playSound={playGameSound}
+          onComplete={(xp) => {
+            if (addXp) addXp(xp)
+            localStorage.setItem(`aidex_detective_${params.id}`, 'done')
+            setEp1Active(false)
+            router.push(`/detective/ep3`)
+          }}
+        />
+      )}
+      {ep1Active && params.id === 'ep3' && (
+        <Ep3Full
+          missionId={params.id}
+          playSound={playGameSound}
+          onComplete={(xp) => {
+            if (addXp) addXp(xp)
+            localStorage.setItem(`aidex_detective_${params.id}`, 'done')
+            setEp1Active(false)
+            router.push(`/detective/ep4`)
+          }}
+        />
+      )}
+      {ep1Active && params.id === 'ep4' && (
+        <Ep4Full
+          missionId={params.id}
+          playSound={playGameSound}
+          onComplete={(xp) => {
+            if (addXp) addXp(xp)
+            localStorage.setItem(`aidex_detective_${params.id}`, 'done')
+            setEp1Active(false)
+            router.push('/labs')
+          }}
+        />
+      )}
+
+
       {/* ── SOL PANEL ─────────────────────────────── */}
-      <aside className="w-full md:w-80 bg-[#0d0e1a] border-r border-indigo-900/40 flex flex-col overflow-hidden" style={{ height: '100vh' }}>
-        <div className="p-4 border-b border-indigo-900/40 flex-shrink-0">
-          <Link href="/labs" className="text-[10px] text-indigo-500 hover:text-indigo-300 flex items-center gap-1 mb-3">← ANA MENÜYE DÖN</Link>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`w-2 h-2 rounded-full animate-pulse ${isSuccess ? 'bg-green-400' : 'bg-red-500'}`}></span>
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest">
-              {isSuccess ? 'VAKA ÇÖZÜLDÜ' : 'VAKA AKTİF'}
-            </span>
-          </div>
+      {!isLearningEpisode && (
+        <>
+          <aside className="w-full md:w-80 bg-[#0d0e1a] border-r border-indigo-900/40 flex flex-col overflow-hidden" style={{ height: '100vh' }}>
+            <div className="p-4 border-b border-indigo-900/40 flex-shrink-0">
+              <Link href="/labs" className="text-[10px] text-indigo-500 hover:text-indigo-300 flex items-center gap-1 mb-3">← ANA MENÜYE DÖN</Link>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`w-2 h-2 rounded-full animate-pulse ${isSuccess ? 'bg-green-400' : 'bg-red-500'}`}></span>
+                <span className="text-[10px] text-slate-500 uppercase tracking-widest">
+                  {isSuccess ? 'VAKA ÇÖZÜLDÜ' : 'VAKA AKTİF'}
+                </span>
+              </div>
           <div className="text-sm font-bold text-white">{mission.title}</div>
           <div className="text-[10px] mt-1 text-yellow-400">{mission.subtitle} · {attemptCount} Deneme</div>
         </div>
@@ -833,6 +912,34 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
           </div>
         )}
 
+        {/* Input Bölümü Üstü — AI X-Ray */}
+        {lastXray && !isSuccess && (
+          <div className="mx-4 mb-3 animate-fade-in">
+            <div className="bg-[#0a0d16] border border-indigo-900/50 rounded-lg overflow-hidden">
+              <div className="bg-indigo-950/40 px-3 py-1.5 flex items-center justify-between border-b border-indigo-900/40">
+                <span className="text-[10px] font-bold text-indigo-300 flex items-center gap-1">⚡ PROMPT ANATOMİSİ</span>
+                <span className={`text-[11px] font-black ${lastXray.score >= 3 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {lastXray.score}/3 — {lastXray.score >= 3 ? 'MÜKEMMEL' : 'YETERSİZ'}
+                </span>
+              </div>
+              <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">
+                <div className={`p-2 rounded border ${lastXray.hasRole ? 'border-emerald-800/40 bg-emerald-950/20 text-emerald-300' : 'border-red-900/40 bg-red-950/20 text-red-300'}`}>
+                  <div className="font-bold mb-1">{lastXray.hasRole ? '✅ Rol: Var' : '❌ Rol: Yok'}</div>
+                  <div className="text-[9px] opacity-70">{lastXray.hasRole ? 'AI kendini dedektif gibi ayarladı' : '"Sen bir uzmansın" gibi bir rol ver'}</div>
+                </div>
+                <div className={`p-2 rounded border ${lastXray.hasContext ? 'border-emerald-800/40 bg-emerald-950/20 text-emerald-300' : 'border-red-900/40 bg-red-950/20 text-red-300'}`}>
+                  <div className="font-bold mb-1">{lastXray.hasContext ? '✅ Kanıt: Tam' : '❌ Kanıt: Eksik'}</div>
+                  <div className="text-[9px] opacity-70">{lastXray.hasContext ? 'Tüm logları birleştirmeyi başardın' : 'Kanıtların HEPSİNİ kopyalayıp gönder'}</div>
+                </div>
+                <div className={`p-2 rounded border ${lastXray.hasFormat ? 'border-emerald-800/40 bg-emerald-950/20 text-emerald-300' : 'border-red-900/40 bg-red-950/20 text-red-300'}`}>
+                  <div className="font-bold mb-1">{lastXray.hasFormat ? '✅ Filtre: Var' : '❌ Filtre: Yok'}</div>
+                  <div className="text-[9px] opacity-70">{lastXray.hasFormat ? 'Zaman aralığını (03:00) daralttın' : 'Saat aralığını açıkça belirt'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-4 bg-[#0d0e1a] border-t border-indigo-900/40 flex-shrink-0 z-10">
           {isSuccess ? (
@@ -887,6 +994,202 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
           )}
         </div>
       </main>
+      {/* ── BRİFİNG EKRANI OVERLAY ─────────────────────────────── */}
+      {showBriefing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(3,7,18,0.97)', backdropFilter: 'blur(8px)' }}>
+          <div className="max-w-md w-full mx-4 text-center">
+            {/* Animasyonlu ikon */}
+            <div className="text-6xl mb-4 animate-bounce">🕵️</div>
+
+            {/* Üst etiket */}
+            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full text-xs font-bold"
+              style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)', color: '#818cf8' }}>
+              📡 GİZLİ BÖLÜM {mission.chapterNumber}/6
+            </div>
+
+            <h2 className="text-2xl font-black text-white mb-2">{mission.title}</h2>
+            <p className="text-slate-400 text-sm leading-relaxed mb-6">{mission.subtitle}</p>
+
+            {/* Senaryo özeti */}
+            <div className="text-left rounded-lg p-4 mb-4"
+              style={{ background: 'rgba(30,41,59,0.6)', border: '1px solid rgba(99,102,241,0.3)' }}>
+              <div className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-2">🎯 Görev</div>
+              <p className="text-slate-300 text-sm leading-relaxed">{mission.objective}</p>
+            </div>
+
+            {/* Öğrenilecek yetenek */}
+            <div className="rounded-lg p-3 mb-6 flex items-center gap-3"
+              style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}>
+              <span className="text-2xl">🧠</span>
+              <div className="text-left">
+                <div className="text-xs text-emerald-400 font-bold">Bu bölümde öğreneceğin yetenek:</div>
+                <div className="text-sm text-white font-semibold">AI'a Veri + Hedef + Zaman Kriteri Verme</div>
+                <div className="text-xs text-emerald-300/60">ChatGPT&apos;yi profesyonel gibi kullanmak için temel beceri</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowBriefing(false)}
+              className="w-full py-3 text-white font-black text-lg rounded-lg transition-all hover:scale-105"
+              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', boxShadow: '0 0 30px rgba(99,102,241,0.5)' }}
+            >
+              GÖREVE BAŞLA 🚀
+            </button>
+            <button onClick={() => setShowBriefing(false)}
+              className="mt-3 text-xs text-slate-600 hover:text-slate-400 transition-colors">
+              geç →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PROMPT İNŞA ET - TAM EKRAN MODAL (ep1) ─────────────────────────────── */}
+      {showBuilder && !isSuccess && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center pb-20"
+          style={{ background: 'rgba(3,7,18,0.85)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-2xl mx-4 rounded-2xl overflow-hidden shadow-2xl"
+            style={{ background: 'rgba(13,14,26,0.99)', border: '1px solid rgba(99,102,241,0.6)', boxShadow: '0 0 60px rgba(99,102,241,0.3)' }}>
+
+            {/* Başlık */}
+            <div className="px-6 py-4 border-b border-indigo-900/40 flex items-center justify-between"
+              style={{ background: 'rgba(30,27,75,0.7)' }}>
+              <div>
+                <div className="text-base font-black text-white">🧩 Prompt İnşa Et</div>
+                <div className="text-xs text-indigo-400 mt-0.5">3 adımı tamamla, AI seni anlasın</div>
+              </div>
+              <button onClick={() => setShowBuilder(false)}
+                className="text-slate-500 hover:text-slate-300 text-xl transition-colors">✕</button>
+            </div>
+
+            <div className="p-6 space-y-4">
+
+              {/* ADIM 1: ROL */}
+              <div className={`rounded-xl p-4 border-2 transition-all ${builderRole ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-indigo-800/40 bg-slate-900/30'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-black"
+                    style={{ background: builderRole ? 'rgba(16,185,129,0.3)' : 'rgba(99,102,241,0.3)', color: builderRole ? '#10b981' : '#818cf8' }}>
+                    {builderRole ? '✓' : '1'}
+                  </span>
+                  <span className="font-bold text-white text-sm">AI&apos;a bir rol ver</span>
+                  <span className="text-xs text-slate-500">— AI rolüne göre farklı düşünür!</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { val: 'adli bilişim dedektifisin', label: '🕵️ Adli Bilişim Dedektifi', desc: 'Suç delillerini inceler' },
+                    { val: 'siber güvenlik uzmanısın', label: '🔐 Siber Güvenlik Uzmanı', desc: 'Saldırıları analiz eder' },
+                    { val: 'sistem yöneticisisin', label: '🖥️ Sistem Yöneticisi', desc: 'Log kayıtlarını okur' },
+                    { val: 'veri analisti olarak çalışıyorsun', label: '📊 Veri Analisti', desc: 'Desenleri tespit eder' },
+                  ].map(opt => (
+                    <button key={opt.val} onClick={() => setBuilderRole(opt.val)}
+                      className="text-left p-3 rounded-lg border transition-all hover:scale-[1.02]"
+                      style={{
+                        background: builderRole === opt.val ? 'rgba(16,185,129,0.15)' : 'rgba(30,41,59,0.5)',
+                        border: builderRole === opt.val ? '1px solid rgba(16,185,129,0.6)' : '1px solid rgba(99,102,241,0.3)',
+                      }}>
+                      <div className={`text-sm font-bold ${builderRole === opt.val ? 'text-emerald-300' : 'text-white'}`}>{opt.label}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ADIM 2: HEDEF */}
+              <div className={`rounded-xl p-4 border-2 transition-all ${builderTarget ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-indigo-800/40 bg-slate-900/30'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-black"
+                    style={{ background: builderTarget ? 'rgba(16,185,129,0.3)' : 'rgba(99,102,241,0.3)', color: builderTarget ? '#10b981' : '#818cf8' }}>
+                    {builderTarget ? '✓' : '2'}
+                  </span>
+                  <span className="font-bold text-white text-sm">Ne bulmak istiyorsun?</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { val: 'yetkisiz giriş yapan personelin tam adını ve soyadını bul', label: '👤 Yetkisiz giren kişinin adı soyadı', desc: 'Kim sisteme sızdı?' },
+                    { val: 'şüpheli IP adresini ve hangi hesabın kullanıldığını bul', label: '🌐 Şüpheli IP ve kullanılan hesap', desc: 'Hangi IP, hangi hesap?' },
+                  ].map(opt => (
+                    <button key={opt.val} onClick={() => setBuilderTarget(opt.val)}
+                      className="text-left p-3 rounded-lg border transition-all"
+                      style={{
+                        background: builderTarget === opt.val ? 'rgba(16,185,129,0.15)' : 'rgba(30,41,59,0.5)',
+                        border: builderTarget === opt.val ? '1px solid rgba(16,185,129,0.6)' : '1px solid rgba(99,102,241,0.3)',
+                      }}>
+                      <div className={`text-sm font-bold ${builderTarget === opt.val ? 'text-emerald-300' : 'text-white'}`}>{opt.label}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ADIM 3: SAAT ARALIĞI */}
+              <div className={`rounded-xl p-4 border-2 transition-all ${builderTime ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-indigo-800/40 bg-slate-900/30'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-black"
+                    style={{ background: builderTime ? 'rgba(16,185,129,0.3)' : 'rgba(99,102,241,0.3)', color: builderTime ? '#10b981' : '#818cf8' }}>
+                    {builderTime ? '✓' : '3'}
+                  </span>
+                  <span className="font-bold text-white text-sm">Aramayı daralt</span>
+                  <span className="text-xs text-slate-500">— Saat filtresi AI&apos;yı odaklar!</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { val: '03:00 ile 04:00 arasındaki', label: '🌙 03:00–04:00', desc: 'Gece yarısı (şüpheli)' },
+                    { val: '00:00 ile 06:00 arasındaki', label: '🌃 Gece boyunca', desc: '00:00–06:00 arası' },
+                    { val: 'mesai saatleri dışındaki (18:00-08:00)', label: '🏢 Mesai dışı', desc: 'Akşam ve sabah' },
+                  ].map(opt => (
+                    <button key={opt.val} onClick={() => setBuilderTime(opt.val)}
+                      className="text-center p-3 rounded-lg border transition-all"
+                      style={{
+                        background: builderTime === opt.val ? 'rgba(16,185,129,0.15)' : 'rgba(30,41,59,0.5)',
+                        border: builderTime === opt.val ? '1px solid rgba(16,185,129,0.6)' : '1px solid rgba(99,102,241,0.3)',
+                      }}>
+                      <div className={`text-sm font-bold ${builderTime === opt.val ? 'text-emerald-300' : 'text-white'}`}>{opt.label}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* GÖNDER BUTONU */}
+              <button
+                disabled={!builderRole || !builderTarget || !builderTime}
+                onClick={() => {
+                  // Gerçek kanıt içeriklerini al (puanlama sistemi bunları arar)
+                  const evidenceContents = mission.evidence.map(e => `=== ${e.title} ===\n${e.content}`).join('\n\n')
+                  const prompt = `Sen bir ${builderRole}. Aşağıdaki kanıt dosyalarını analiz ederek ${builderTime} yapılan girişte ${builderTarget}.\n\n${evidenceContents}`
+                  setInput(prompt)
+                  setShowBuilder(false)
+                  setTimeout(() => {
+                    inputRef.current?.focus()
+                  }, 100)
+                }}
+                className="w-full py-4 text-white font-black text-base rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:scale-[1.02]"
+                style={{ background: builderRole && builderTarget && builderTime ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : '#1e293b', boxShadow: builderRole && builderTarget && builderTime ? '0 0 30px rgba(99,102,241,0.4)' : 'none' }}
+              >
+                {builderRole && builderTarget && builderTime
+                  ? '🚀 Promptu Oluştur ve Gönder!'
+                  : `Devam et — ${[!builderRole && 'Rol', !builderTarget && 'Hedef', !builderTime && 'Saat'].filter(Boolean).join(', ')} seç`}
+              </button>
+              <p className="text-center text-[11px] text-slate-600">
+                Daha önce AI kullandıysan alttaki kutuya direkt de yazabilirsin ↓
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ep1'de builder kapalıysa yeniden aç butonu */}
+      {!showBuilder && params.id === 'ep1' && !isSuccess && (
+        <button
+          onClick={() => setShowBuilder(true)}
+          className="fixed bottom-24 right-4 z-20 text-xs px-3 py-2 rounded-full font-bold transition-all hover:scale-105 animate-pulse"
+          style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.6)', color: '#818cf8' }}
+        >
+          🧩 Yardım
+        </button>
+      )}
+      </>
+      )}
     </div>
   )
 }

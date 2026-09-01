@@ -555,13 +555,13 @@ for(let i=0;i<CFG.slots;i++){
   const slotX=Math.sin(angle)*3.8;
   const slotZ=Math.cos(angle)*3.8;
 
-  const slotGlow = new THREE.PointLight(0x1e40af,0.5,2.2);
+  const slotGlow = new THREE.PointLight(0x10B981,1.2,3.0);
   slotGlow.position.set(slotX,0.3,slotZ);
   scene.add(slotGlow);
 
   const guideRing = new THREE.Mesh(
     new THREE.TorusGeometry(0.45,0.04,8,24),
-    new THREE.MeshBasicMaterial({color:0x1e3a5f,transparent:true,opacity:0.8})
+    new THREE.MeshBasicMaterial({color:0x10B981,transparent:true,opacity:0.9})
   );
   guideRing.rotation.x=Math.PI/2;
   guideRing.position.set(slotX,0.05,slotZ);
@@ -610,6 +610,64 @@ canvas.addEventListener('wheel',e=>{
   camRadius=Math.max(7,Math.min(22,camRadius+e.deltaY*.012));
   updateCam();e.preventDefault();
 },{passive:false});
+
+  // ── MOBİL DOKUNMATIK KAMERA KONTROLÜ ─────────────────────────
+  // Tek parmak sürükle → kamerayı döndür
+  // İki parmak sıkıştır/aç → yaklaştır/uzaklaştır (pinch zoom)
+  let touchLastX = 0, touchLastY = 0;
+  let pinchLastDist = 0;
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      touchLastX = e.touches[0].clientX;
+      touchLastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchLastDist = Math.sqrt(dx*dx + dy*dy);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      // Tek parmak → kamera döndür
+      const dx = e.touches[0].clientX - touchLastX;
+      const dy = e.touches[0].clientY - touchLastY;
+      camTheta -= dx * 0.008;
+      camPhi = Math.max(0.3, Math.min(1.3, camPhi + dy * 0.008));
+      touchLastX = e.touches[0].clientX;
+      touchLastY = e.touches[0].clientY;
+      updateCam();
+    } else if (e.touches.length === 2) {
+      // İki parmak → pinch zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const delta = pinchLastDist - dist;
+      camRadius = Math.max(7, Math.min(22, camRadius + delta * 0.04));
+      pinchLastDist = dist;
+      updateCam();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    // Tek parmak bırakıldığında: dokunulan yere blok koy (tap)
+    if (e.changedTouches.length === 1 && STATE.started && STATE.phase === 1 && STATE.selectedType) {
+      const touch = e.changedTouches[0];
+      const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+      const hit = getRayHit(fakeEvent);
+      if (hit) {
+        const currentTotal = STATE.dusmanCount + STATE.dostCount + STATE.noronCount;
+        if (currentTotal < CFG.slots || hit.onBlock) {
+          hoverPos = hit;
+          placeBlock(hit.x, hit.y, hit.z);
+        }
+      }
+    }
+  }, { passive: false });
+  // ── MOBİL DOKUNMATIK KAMERA KONTROLÜ SONU ────────────────────
 
 const raycaster=new THREE.Raycaster();
 const pointer=new THREE.Vector2();
@@ -814,10 +872,10 @@ function updateAccuracyBar(dusman, dost, noron){
 function updateDataSlots(cnt){
   DATA_SLOTS.forEach((slot,i)=>{
     const lit = i < cnt;
-    slot.glow.color.set(lit ? 0x60a5fa : 0x1e40af);
-    slot.glow.intensity = lit ? 1.8 : 0.4;
-    slot.ring.material.color.set(lit ? 0x3b82f6 : 0x1e3a5f);
-    slot.ring.material.opacity = lit ? 1 : 0.5;
+    slot.glow.color.set(lit ? 0x60a5fa : 0x10B981);
+      slot.glow.intensity = lit ? 1.8 : 0.8;
+      slot.ring.material.color.set(lit ? 0x3b82f6 : 0x10B981);
+      slot.ring.material.opacity = lit ? 1.0 : 0.95;
     if(lit && !slot.filled){
       slot.filled=true;
       const spark=new THREE.PointLight(0x60a5fa,2,1.5);
@@ -1149,7 +1207,8 @@ function animate(){
   rings.forEach((r,i)=>{ r.rotation.z=t*(0.5+i*0.15); });
 
   DATA_SLOTS.forEach((s,i)=>{
-    s.glow.intensity=s.filled ? (1.2+Math.sin(t*3+i)*0.4) : (0.3+Math.sin(t+i)*0.15);
+    s.glow.intensity = s.filled ? (1.2+Math.sin(t*3+i)*0.4) : (0.8+Math.sin(t*2.5+i*1.2)*0.7);
+      s.ring.material.opacity = s.filled ? 1.0 : (0.55 + Math.sin(t*2.5+i)*0.45);
   });
 
   for(let i=SHATTERS.length-1; i>=0; i--){
@@ -1249,5 +1308,172 @@ function animate(){
 }
 animate();
 </script>
+
+
+
+<!-- ═══ REHBERSİSTEMİ v3 (Polling) ═══ -->
+<style>
+#ga-box {
+  position: fixed; z-index: 999999; pointer-events: none;
+  display: none; flex-direction: column; align-items: center; gap: 4px;
+}
+#ga-icon {
+  font-size: 48px;
+  filter: drop-shadow(0 0 14px #10B981) drop-shadow(0 0 28px #10B981);
+  animation: gaBounce 0.45s ease-in-out infinite alternate;
+}
+#ga-label {
+  background: #10B981; color: #000; font-family: 'Nunito',sans-serif;
+  font-weight: 900; font-size: 13px; padding: 5px 14px;
+  border-radius: 20px; white-space: nowrap;
+  box-shadow: 0 0 18px rgba(16,185,129,0.9);
+}
+#ga-box.warn-mode #ga-icon { filter: drop-shadow(0 0 14px #f59e0b) drop-shadow(0 0 28px #f59e0b); }
+#ga-box.warn-mode #ga-label { background: #f59e0b; }
+@keyframes gaBounce {
+  0%   { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-20px) scale(1.08); }
+}
+.ga-pulse {
+  outline: 4px solid #10B981 !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 6px rgba(16,185,129,0.4), 0 0 40px rgba(16,185,129,0.5) !important;
+  border-radius: 10px;
+  position: relative; z-index: 100;
+  animation: gaPulse 0.6s ease-in-out infinite alternate !important;
+}
+.ga-pulse-warn {
+  outline: 4px solid #f59e0b !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 6px rgba(245,158,11,0.4), 0 0 40px rgba(245,158,11,0.5) !important;
+  border-radius: 10px;
+  position: relative; z-index: 100;
+  animation: gaPulseWarn 0.6s ease-in-out infinite alternate !important;
+}
+@keyframes gaPulse {
+  0% { box-shadow: 0 0 0 3px rgba(16,185,129,0.4); }
+  100% { box-shadow: 0 0 0 10px rgba(16,185,129,0.7), 0 0 50px rgba(16,185,129,0.6); }
+}
+@keyframes gaPulseWarn {
+  0% { box-shadow: 0 0 0 3px rgba(245,158,11,0.4); }
+  100% { box-shadow: 0 0 0 10px rgba(245,158,11,0.7), 0 0 50px rgba(245,158,11,0.6); }
+}
+</style>
+
+<div id="ga-box">
+  <div id="ga-icon">⬇️</div>
+  <div id="ga-label">buraya bas!</div>
+</div>
+
+<script>
+(function() {
+  const box   = document.getElementById('ga-box');
+  const icon  = document.getElementById('ga-icon');
+  const label = document.getElementById('ga-label');
+
+  function clearPulse() {
+    document.querySelectorAll('.ga-pulse,.ga-pulse-warn').forEach(e => {
+      e.classList.remove('ga-pulse','ga-pulse-warn');
+    });
+  }
+
+  function hide() {
+    clearPulse();
+    box.style.display = 'none';
+    box.classList.remove('warn-mode');
+  }
+
+  function showOnEl(el, lbl, ico, warn) {
+    if (!el) { hide(); return; }
+    clearPulse();
+    el.classList.add(warn ? 'ga-pulse-warn' : 'ga-pulse');
+    icon.textContent  = ico  || '⬇️';
+    label.textContent = lbl  || 'buraya bas!';
+    box.classList.toggle('warn-mode', !!warn);
+    box.style.display = 'flex';
+    const rect = el.getBoundingClientRect();
+    box.style.left = (rect.left + rect.width/2 - 24) + 'px';
+    box.style.top  = Math.max(4, rect.top - 94) + 'px';
+  }
+
+  function showOnSlot3d(idx) {
+    if (typeof DATA_SLOTS === 'undefined' || !DATA_SLOTS[idx]) { hide(); return; }
+    if (typeof camera === 'undefined' || typeof renderer === 'undefined') { hide(); return; }
+    clearPulse();
+    box.classList.remove('warn-mode');
+    icon.textContent  = '⬇️';
+    label.textContent = '📦 buraya koy!';
+    box.style.display = 'flex';
+    // 3D → 2D projeksiyon
+    const slot = DATA_SLOTS[idx];
+    const vec  = new THREE.Vector3(slot.x, 0.5, slot.z);
+    vec.project(camera);
+    const w  = renderer.domElement.clientWidth;
+    const h  = renderer.domElement.clientHeight;
+    const sx = ( vec.x * 0.5 + 0.5) * w;
+    const sy = (-vec.y * 0.5 + 0.5) * h;
+    box.style.left = (sx - 24) + 'px';
+    box.style.top  = Math.max(4, sy - 94) + 'px';
+  }
+
+  // ── ANA POLLING DÖNGÜSÜ ──────────────────────────────────────
+  // Her 300ms'de oyun durumuna bakıp ne göstereceğine karar verir.
+  setInterval(function() {
+    // Oyun başlamadıysa veya dalgadaysa oku gizle
+    if (typeof STATE === 'undefined' || !STATE.started || STATE.phase !== 1 || STATE.failed) {
+      hide();
+      return;
+    }
+
+    const btn       = document.getElementById('btn-activate');
+    const btnText   = btn ? btn.textContent : '';
+    const btnActive = btn && !btn.disabled;
+
+    // ── DURUM 1: Buton "EKSİK" moddaysa (bias tuzağı)
+    //    → Mavi Temiz Veri bloğuna yönlendir
+    if (btnActive && btnText.includes('EKS')) {
+      const dostEl = document.getElementById('pb-dostornegi');
+      if (dostEl && !dostEl.classList.contains('locked')) {
+        showOnEl(dostEl, '⚠️ bunu da ekle!', '👆', true);
+      } else {
+        hide();
+      }
+      return;
+    }
+
+    // ── DURUM 2: Buton "EĞİTİMİ TAMAMLA" aktifse → butona yönlendir
+    if (btnActive && !btnText.includes('EKS')) {
+      showOnEl(btn, '🚀 eğitimi tamamla!', '⬇️', false);
+      return;
+    }
+
+    // ── DURUM 3: Hiç blok seçilmemişse → palette'teki ilk kilitsiz bloğa
+    if (!STATE.selectedType) {
+      if (typeof CFG !== 'undefined' && CFG.unlockedBlocks && CFG.unlockedBlocks.length > 0) {
+        const firstEl = document.getElementById('pb-' + CFG.unlockedBlocks[0]);
+        if (firstEl && !firstEl.classList.contains('locked')) {
+          showOnEl(firstEl, '✋ önce bunu seç!', '⬇️', false);
+        }
+      }
+      return;
+    }
+
+    // ── DURUM 4: Blok seçilmiş ama henüz yeterli yok →
+    //    İlk BOŞ slot'u bul ve ona yönlendir
+    if (typeof DATA_SLOTS !== 'undefined') {
+      const emptyIdx = DATA_SLOTS.findIndex(s => !s.filled);
+      if (emptyIdx !== -1) {
+        showOnSlot3d(emptyIdx);
+        return;
+      }
+    }
+
+    // Hiçbiri değilse gizle
+    hide();
+
+  }, 300);
+})();
+</script>
+<!-- ═══ REHBERSİSTEMİ v3 SONU ═══ -->
 </body>
 </html>
