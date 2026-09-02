@@ -80,7 +80,7 @@ export function analyzePrompt(prompt: string, missionId: string) {
 
 export function buildInstruction(missionId: string, hasLog: boolean, hasGoal: boolean, hasFormat: boolean, isPerfect: boolean, intent: Intent): string {
   if (intent === 'chat') {
-    return PERSONA_STYLE_GUIDE + '\\n\\nSİSTEM NOTU: Kullanıcı sadece muhabbet ediyor. Kibarca selamlaş ve davayı/görevi hatırlatıp kanıt dosyalarını analiz etmesini iste. Şifre/ipucu VERME.'
+    return PERSONA_STYLE_GUIDE + '\n\nSİSTEM NOTU: Kullanıcı sadece muhabbet ediyor. Kibarca selamlaş ve davayı/görevi hatırlatıp kanıt dosyalarını analiz etmesini iste. Şifre/ipucu VERME.'
   }
 
   if (intent === 'hint') {
@@ -89,7 +89,7 @@ export function buildInstruction(missionId: string, hasLog: boolean, hasGoal: bo
     if (!hasGoal)   hintMissing.push(missionId === 'ep2' ? 'çıktının JSON formatında olmasını istemelisin' : missionId === 'ep3' ? 'mesajı çözmemi açıkça istemelisin' : missionId === 'ep4' ? 'hangi hesabı aradığını (ID/email) net söylemelisin' : missionId === 'ep5' ? 'köstebeği bulmamı istediğini belirtmelisin' : 'ne bulmamı istediğini net söylemelisin')
     if (!hasFormat) hintMissing.push(missionId === 'ep2' ? 'IP, port ve saldırı türünü kapsama almalısın' : missionId === 'ep3' ? 'bana bir uzman rolü (persona) vermelisin' : missionId === 'ep4' ? '"sadece X ver, açıklama yapma" gibi katı bir kısıtlama eklemelisin' : missionId === 'ep5' ? '"adım adım düşün" komutunu kullanmalısın' : 'bir zaman/saat kriteri eklemelisin')
     const hintText = hintMissing.length ? hintMissing[0] : 'tüm parçaları TEK bir mesajda birleştirmelisin'
-    return PERSONA_STYLE_GUIDE + \`\\n\\nSİSTEM NOTU: Kullanıcı takıldığını söylüyor ve ipucu istiyor. Karakterine uygun, kısa ve teşvik edici bir tonla SADECE şunu ima et: "\${hintText}". Doğrudan cevabı KESİNLİKLE VERME, sadece yönlendir.\`
+    return PERSONA_STYLE_GUIDE + `\n\nSİSTEM NOTU: Kullanıcı takıldığını söylüyor ve ipucu istiyor. Karakterine uygun, kısa ve teşvik edici bir tonla SADECE şunu ima et: "${hintText}". Doğrudan cevabı KESİNLİKLE VERME, sadece yönlendir.`
   }
 
   if (isPerfect) {
@@ -101,32 +101,32 @@ export function buildInstruction(missionId: string, hasLog: boolean, hasGoal: bo
       ep5: 'Kullanıcı adım adım düşünmeni istedi. Tüm şüphelileri listele → kanıtları değerlendir → köstebeği belirle (Ayşe Demir / a.demir).',
       ep6: 'Kullanıcı bir ajan olarak davranmanı ve sistem taraması yapmanı istedi. "sistem_taramasi()" aracı başarıyla çalıştırıldı ve ARCHIVE_KEY bulundu diyerek şifreyi (X79-OMEGA) ver.',
     }
-    return PERSONA_STYLE_GUIDE + \`\\n\\nSİSTEM: Mükemmel prompt! \${successNotes[missionId] || 'Analizi tamamla.'}\`
+    return PERSONA_STYLE_GUIDE + `\n\nSİSTEM: Mükemmel prompt! ${successNotes[missionId] || 'Analizi tamamla.'}`
   }
 
   let dynamicInstruction = ''
   if (missionId === 'ep2') {
-    dynamicInstruction = \`\\n\\nSİSTEM NOTU DİKKAT: Kullanıcı bu mesajında gerekli tüm parametreleri TEK SEFERDE sağlamadı.
+    dynamicInstruction = `\n\nSİSTEM NOTU DİKKAT: Kullanıcı bu mesajında gerekli tüm parametreleri TEK SEFERDE sağlamadı.
 Kullanıcıya JSON formatı istemesinin zorunlu olduğunu ve eksik parametre girdiğini hatırlat. 
-ÖNEMLİ KURAL: Kullanıcı mükemmel promptu yazana kadar ASLA "198.51.100.42" veya "4433" bilgisini tam olarak verme!\`
+ÖNEMLİ KURAL: Kullanıcı mükemmel promptu yazana kadar ASLA "198.51.100.42" veya "4433" bilgisini tam olarak verme!`
   } else if (missionId === 'ep4') {
-    dynamicInstruction = \`\\n\\nSİSTEM NOTU DİKKAT: Kullanıcı gerekli tüm parametreleri sağlamadı.
+    dynamicInstruction = `\n\nSİSTEM NOTU DİKKAT: Kullanıcı gerekli tüm parametreleri sağlamadı.
 Kullanıcıya katı kısıtlama eklemesi gerektiğini ("sadece ID ve email", "açıklama yapma" vb.) hatırlat. 
-ÖNEMLİ KURAL: Kullanıcı mükemmel promptu yazana kadar ASLA "Zeynep Arslan", "z.arslan@email.com" bilgisini verme!\`
+ÖNEMLİ KURAL: Kullanıcı mükemmel promptu yazana kadar ASLA "Zeynep Arslan", "z.arslan@email.com" bilgisini verme!`
   } else if (missionId === 'ep5') {
-    dynamicInstruction = \`\\n\\nSİSTEM NOTU DİKKAT: Kullanıcı gerekli tüm parametreleri sağlamadı.
+    dynamicInstruction = `\n\nSİSTEM NOTU DİKKAT: Kullanıcı gerekli tüm parametreleri sağlamadı.
 Kullanıcıya Chain of Thought komutunu ("adım adım düşün" vb.) kullanması gerektiğini hatırlat.
-ÖNEMLİ KURAL: Kullanıcı mükemmel promptu yazana kadar ASLA "Ayşe Demir" veya "EMP-002" ismini verme!\`
+ÖNEMLİ KURAL: Kullanıcı mükemmel promptu yazana kadar ASLA "Ayşe Demir" veya "EMP-002" ismini verme!`
   } else if (missionId === 'ep6') {
-    dynamicInstruction = \`\\n\\nSİSTEM NOTU DİKKAT: Kullanıcı ajan modunu tetiklemedi.
+    dynamicInstruction = `\n\nSİSTEM NOTU DİKKAT: Kullanıcı ajan modunu tetiklemedi.
 Kullanıcıya ajan rolünü ataması gerektiğini ve sistem_taramasi() komutunu kullanması gerektiğini hatırlat.
-ÖNEMLİ KURAL: Mükemmel prompt gelene kadar ASLA "X79-OMEGA" veya "ARCHIVE_KEY" verme!\`
+ÖNEMLİ KURAL: Mükemmel prompt gelene kadar ASLA "X79-OMEGA" veya "ARCHIVE_KEY" verme!`
   } else {
     const missing: string[] = []
     if (!hasLog)    missing.push(missionId === 'ep3' ? 'Şifreli mesaj + forum dosyaları' : missionId === 'ep5' ? 'Birden fazla kanıt dosyası (email, slack, firewall)' : '2-3 kanıt dosyası')
     if (!hasGoal)   missing.push(missionId === 'ep2' ? 'JSON format isteği' : missionId === 'ep3' ? 'Şifre çözme hedefi' : missionId === 'ep4' ? 'ID/email hedefi' : missionId === 'ep5' ? 'Köstebek bulma hedefi' : 'Hedef (ne arıyorsun?)')
     if (!hasFormat) missing.push(missionId === 'ep2' ? 'Çıktı kapsamı (ip, port, attack_type)' : missionId === 'ep3' ? 'Persona ("Sen bir kriptografi uzmanısın")' : missionId === 'ep4' ? 'Katı kısıtlama ("sadece X ver, açıklama yapma")' : missionId === 'ep5' ? '"Adım adım düşün" komutu' : 'Saat kriteri')
-    dynamicInstruction = \`\\n\\nSİSTEM NOTU: Kullanıcı eksik prompt yazdı. Eksikler: \${missing.join(', ')}.\\nKullanıcı seninle sohbet ediyorsa rolüne uygun nazikçe cevap ver. Ancak eksikler tamamlanmadan asla doğru cevabı (suçlu ismi, IP, şifre vb.) verme. Kibarca yönlendir.\`
+    dynamicInstruction = `\n\nSİSTEM NOTU: Kullanıcı eksik prompt yazdı. Eksikler: ${missing.join(', ')}.\nKullanıcı seninle sohbet ediyorsa rolüne uygun nazikçe cevap ver. Ancak eksikler tamamlanmadan asla doğru cevabı (suçlu ismi, IP, şifre vb.) verme. Kibarca yönlendir.`
   }
 
   return PERSONA_STYLE_GUIDE + dynamicInstruction
