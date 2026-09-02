@@ -3,7 +3,7 @@
 import React from 'react';
 
 interface PhaseProgressProps {
-  phases: { label: string; icon: string }[];
+  phases: { label: string; icon: React.ReactNode }[];
   current: number; // 0-indexed
 }
 

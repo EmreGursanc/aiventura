@@ -320,6 +320,10 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
   const [showEvidence, setShowEvidence] = useState(true)
   const [activeEvidence, setActiveEvidence] = useState(mission?.evidence[0])
   const [nexStep, setNexStep] = useState(0)
+  const [builderRole, setBuilderRole] = useState('')
+  const [builderTarget, setBuilderTarget] = useState('')
+  const [builderTime, setBuilderTime] = useState('')
+
   const [steps, setSteps] = useState((STEPS_BY_CHAPTER[params.id] ?? STEPS_BY_CHAPTER.ep1).map(s => ({ ...s })))
   const [conversationHistory, setConversationHistory] = useState<{role: 'user'|'assistant', content: string}[]>([])
   const [copiedId, setCopiedId] = useState<string|null>(null)
@@ -584,7 +588,7 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
         <Ep1Full
           missionId={params.id}
           playSound={playGameSound}
-          onComplete={(xp) => {
+          onComplete={(xp: number) => {
             if (addXp) addXp(xp)
             localStorage.setItem(`aidex_detective_${params.id}`, 'done')
             setEp1Active(false)
@@ -596,7 +600,7 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
         <Ep2Full
           missionId={params.id}
           playSound={playGameSound}
-          onComplete={(xp) => {
+          onComplete={(xp: number) => {
             if (addXp) addXp(xp)
             localStorage.setItem(`aidex_detective_${params.id}`, 'done')
             setEp1Active(false)
@@ -608,7 +612,7 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
         <Ep3Full
           missionId={params.id}
           playSound={playGameSound}
-          onComplete={(xp) => {
+          onComplete={(xp: number) => {
             if (addXp) addXp(xp)
             localStorage.setItem(`aidex_detective_${params.id}`, 'done')
             setEp1Active(false)
@@ -620,7 +624,7 @@ export default function DetectiveTerminal({ params }: { params: { id: string } }
         <Ep4Full
           missionId={params.id}
           playSound={playGameSound}
-          onComplete={(xp) => {
+          onComplete={(xp: number) => {
             if (addXp) addXp(xp)
             localStorage.setItem(`aidex_detective_${params.id}`, 'done')
             setEp1Active(false)
