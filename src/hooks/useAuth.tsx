@@ -127,6 +127,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (snap.exists()) {
         const fresh = { ...snap.data() as UserData, sonGirisTarihi: now }
+        if (isAdmin && !fresh.isAdmin) {
+          fresh.isAdmin = true;
+          updateDoc(userRef, { isAdmin: true }).catch(() => {});
+        }
         save(fresh)
         // updateDoc'u fire-and-forget yap — UI beklemez
         updateDoc(userRef, { sonGirisTarihi: now }).catch((err) => console.error("Firestore güncelleme reddedildi:", err))
