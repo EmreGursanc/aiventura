@@ -158,7 +158,7 @@ export default function Navbar({ aktifIz, onIzDegistir }: NavbarProps) {
           ) : (
             <a
               href="/giris"
-              className="btn-yesil text-xs hidden sm:flex"
+              className="btn-yesil text-xs"
             >
               🔑 Giriş Yap
             </a>
@@ -193,13 +193,62 @@ export default function Navbar({ aktifIz, onIzDegistir }: NavbarProps) {
           className="sm:hidden border-t border-sinir px-4 py-4 flex flex-col gap-3 animate-yukari"
           style={{ background: 'rgba(15, 23, 42, 0.98)' }}
         >
-          {/* Mobil Stats */}
-          <div className="flex items-center gap-4 text-sm">
-            <span style={{ color: '#F97316' }}>🔥 {kullaniciVerisi.seriGunu} gün</span>
-            <span style={{ color: '#10B981' }}>
-              SVY {kullaniciVerisi.seviye} · {kullaniciVerisi.xp} XP
-            </span>
-          </div>
+          {/* Mobil Stats - sadece giriş yapılmışsa göster */}
+          {user && (
+            <div className="flex items-center gap-4 text-sm">
+              <span style={{ color: '#F97316' }}>🔥 {kullaniciVerisi.seriGunu} gün</span>
+              <span style={{ color: '#10B981' }}>
+                SVY {kullaniciVerisi.seviye} · {kullaniciVerisi.xp} XP
+              </span>
+            </div>
+          )}
+
+          {/* Mobil Giriş/Kaydol Butonları */}
+          {user ? (
+            <div className="flex flex-col gap-2 pt-1 border-t border-sinir">
+              <a
+                href="/anasayfa"
+                onClick={() => setMenuAcik(false)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white transition-all"
+                style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)' }}
+              >
+                👤 Profilim
+              </a>
+              <button
+                onClick={() => { cikisYap(); setMenuAcik(false) }}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444' }}
+              >
+                🚪 Çıkış Yap
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 pt-1 border-t border-sinir">
+              <a
+                href="/giris"
+                onClick={() => setMenuAcik(false)}
+                className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl text-sm font-bold text-white transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, #10B981, #059669)',
+                  boxShadow: '0 0 20px rgba(16,185,129,0.35)',
+                }}
+              >
+                🔑 Giriş Yap
+              </a>
+              <a
+                href="/giris?tab=kayit"
+                onClick={() => setMenuAcik(false)}
+                className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl text-sm font-bold transition-all"
+                style={{
+                  background: 'rgba(99,102,241,0.12)',
+                  border: '1px solid rgba(99,102,241,0.5)',
+                  color: '#818cf8',
+                }}
+              >
+                🚀 Ücretsiz Kaydol
+              </a>
+            </div>
+          )}
         </div>
       )}
     </header>
