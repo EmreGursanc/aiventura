@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userRef = doc(db, 'users', firebaseUser.uid)
       const snap = await getDoc(userRef)
       const now = new Date().toISOString()
-      const isAdmin = (firebaseUser.email || '').toLowerCase() === 'admin@aidex.com'
+      const isAdmin = (firebaseUser.email || '').toLowerCase() === 'theemregursanc@gmail.com'
 
       if (snap.exists()) {
         const fresh = { ...snap.data() as UserData, sonGirisTarihi: now }
@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       // Firestore başarısız → email'den fallback türet
       console.error("Firestore genel hatası (okuma/yazma):", err)
-      const isAdmin = (firebaseUser.email || '').toLowerCase() === 'admin@aidex.com'
+      const isAdmin = (firebaseUser.email || '').toLowerCase() === 'theemregursanc@gmail.com'
       const cached = readCache()
       if (!cached) {
         save({
@@ -181,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const newData: UserData = {
       ...DEFAULT_USER_DATA as UserData,
       isim: isim || 'Kaşif', email, kayitTarihi: now, sonGirisTarihi: now,
-      toplamSureDk: 0, isAdmin: email.toLowerCase() === 'admin@aidex.com',
+      toplamSureDk: 0, isAdmin: email.toLowerCase() === 'theemregursanc@gmail.com',
     }
     save(newData)
     setDoc(doc(db, 'users', cred.user.uid), newData).catch(() => {})
